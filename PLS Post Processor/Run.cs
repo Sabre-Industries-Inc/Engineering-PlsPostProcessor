@@ -16,7 +16,7 @@ namespace PLS_Post_Processor
         {
             string polPath = ParsePolPath();
             string stagingPath = @"c:\pls\temp\stage";
-            string uploadFile = @"c:\pls\temp\upload.zip";
+            string uploadFile = @"c:\pls\temp\plsupload.zip";
             string tempFileName = $"{Path.GetFileNameWithoutExtension(polPath)}__TEMP";
             string tempPolPath = Path.Combine(Path.GetDirectoryName(polPath),$"{tempFileName}{Path.GetExtension(polPath)}");
 
