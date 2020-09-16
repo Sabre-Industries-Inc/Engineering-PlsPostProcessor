@@ -35,6 +35,7 @@ namespace PLS_Post_Processor
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
         private static string plsDxfFullPath = "";
+        private static string plsDxfIsoFullPath = "";
 
         private const int maxPlsWaitTimeMilli = 5000;  // ==> milliseconds
 
@@ -97,13 +98,16 @@ namespace PLS_Post_Processor
 
             string cmdFilePath = @"c:\pls\temp\postcmd.cmd";
             plsDxfFullPath = $@"{stagingPath}\pe.dxf";
+            plsDxfIsoFullPath = $@"{stagingPath}\peIso.dxf";
 
             // *** PLS API parameters for DXF.
             string code3D = "1";            // 1 = 3D, 0 = 2D
             string drawMode = "2";          // 0 = line, 1 = wireframe, 2 = rendered
-            string displayLabels = "0";     // 1 = on, 0 = off
-            string longitude = "20";        // longitude of view in degrees
-            string latitude = "30";         // latitude of view in degrees
+            string displayLabels = "1";     // 1 = on, 0 = off
+            //string longitude = "20";        // longitude of view in degrees
+            //string latitude = "30";         // latitude of view in degrees
+            string longitude = "0";        // longitude of view in degrees
+            string latitude = "0";         // latitude of view in degrees
 
             using(StreamWriter sw = new StreamWriter(cmdFilePath, false))
             {
@@ -111,7 +115,8 @@ namespace PLS_Post_Processor
                 sw.WriteLine($@"49 '{tempPolPath}'");
                 sw.WriteLine($@"42 '{plsDxfFullPath}' {code3D} {drawMode} {displayLabels} {longitude} {latitude}");
                 //sw.WriteLine($@"42 '{plsDxfFullPath}' 1 2 1 60 30");
-                //sw.WriteLine($@"42 '{stagingPath}\pe.dxf' 1 2 2 60 30");
+                //sw.WriteLine($@"42 '{stagingPath}\peIso.dxf' 1 2 0 20 30");
+                sw.WriteLine($@"42 '{plsDxfIsoFullPath}' 1 2 0 20 30");
                 sw.WriteLine("3 ; exit");
             }
 
@@ -136,6 +141,8 @@ namespace PLS_Post_Processor
         /// </summary>
         /// <remarks>
         /// See Wout's URL: http://www.woutware.com/doc/cadlib4.0/api/WW.Cad.IO.DxfReader.html
+        ///
+        /// For Auto sized bitmap see URL: https://woutware.com/Forum/Topic/1962
         /// </remarks>
         private static void DxfImageExporter()
         {
@@ -146,18 +153,20 @@ namespace PLS_Post_Processor
                 return;
             }
 
-            string dxfFilePath = plsDxfFullPath;
+            string dxfFilePath = plsDxfIsoFullPath; // plsDxfFullPath;
             string sFormat = format.ToString().ToLower();
 
             DxfModel model = null;
             try {
                 model = CadReader.Read(dxfFilePath);
-            } catch (Exception e) {
+            }
+            catch (Exception e)
+            {
                 string errMsg = $"Error opening DXF during DXF image export.\r\n{dxfFilePath}";
                 Logger.Error(e, errMsg);
             }
 
-            CleanupDxfDrawing(model); //, dxfFilePath);
+            //CleanupDxfDrawing(model);
 
             // *** The image output file full path with defined extension.
             string outfile = Path.ChangeExtension(dxfFilePath, sFormat);
@@ -225,13 +234,24 @@ namespace PLS_Post_Processor
                 DxfText txtEntity = entity as DxfText;
                 double txtHt = txtEntity.Height / 2.0;
                 string txt = txtEntity.Text;
-                var txtPt = txtEntity.AlignmentPoint1;
+                var txtPt1 = txtEntity.AlignmentPoint1;
+                var txtPt2 = txtEntity.AlignmentPoint2;
+                var horizAlign = txtEntity.HorizontalAlignment;
+                var vertAlign = txtEntity.VerticalAlignment;
 
-                //boundsCalculator.GetBounds(model, txtEntity);
-                //Bounds3D bounds = boundsCalculator.Bounds;
+                DxfText newTxt = new DxfText()
+                {
+                    Text = txt,
+                    Height = txtHt,
+                    AlignmentPoint1 = txtPt1,
+                    AlignmentPoint2 = txtPt2,
+                    HorizontalAlignment = horizAlign,
+                    VerticalAlignment = vertAlign
+                };
+                model.Entities.Add(newTxt);
 
-                DxfText newTxt = new DxfText(txt, txtPt, txtHt);
-                txtEntity = newTxt;
+                // *** Make original text invisible since I can't change the size.
+                txtEntity.Visible = false;
             }
 
             string dxfFullPath = model.Filename;
