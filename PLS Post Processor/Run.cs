@@ -12,6 +12,7 @@ using WW.Math;
 
 using NLog;
 using WW.Cad.Model.Entities;
+using System.Collections.Generic;
 
 //using SixLabors.ImageSharp.PixelFormats;
 //using SixLabors.ImageSharp;
@@ -35,6 +36,8 @@ namespace PLS_Post_Processor
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
         private static string plsDxfFullPath = "";
+        private static string plsDxfTopFullPath = "";
+        private static string plsDxfFrontFullPath = "";
         private static string plsDxfIsoFullPath = "";
 
         private const int maxPlsWaitTimeMilli = 5000;  // ==> milliseconds
@@ -56,12 +59,25 @@ namespace PLS_Post_Processor
 
             string lcaPath = Path.ChangeExtension(polPath, "lca");
             string tempLcaPath = Path.ChangeExtension(tempPolPath, "lca");
+            if (!File.Exists(lcaPath))
+            {
+                Console.WriteLine("LCA path does not exist!");
+                Console.WriteLine($@"{lcaPath}");
+                Console.WriteLine("");
+                Console.WriteLine("PLS Post Processor terminated! No DXF or PNG files created.");
+                Console.WriteLine("Press any key to exit...");
+                Console.ReadKey();
+                return;
+            }
+
             File.Copy(lcaPath, tempLcaPath, true);
 
             CreateCommandFile(tempPolPath, stagingPath);
             RunCommandFile();
 
-            DxfImageExporter();
+            DxfImageExporter(plsDxfFrontFullPath);
+            DxfImageExporter(plsDxfTopFullPath);
+            DxfImageExporter(plsDxfIsoFullPath);
 
             File.Delete(tempPolPath);
             File.Delete(tempLcaPath);
@@ -97,7 +113,9 @@ namespace PLS_Post_Processor
             }
 
             string cmdFilePath = @"c:\pls\temp\postcmd.cmd";
-            plsDxfFullPath = $@"{stagingPath}\pe.dxf";
+            plsDxfFullPath = $@"{stagingPath}\peFront.dxf";
+            plsDxfTopFullPath = $@"{stagingPath}\peTop.dxf";
+            plsDxfFrontFullPath = plsDxfFullPath; // $@"{stagingPath}\peFront.dxf";
             plsDxfIsoFullPath = $@"{stagingPath}\peIso.dxf";
 
             // *** PLS API parameters for DXF.
@@ -116,6 +134,7 @@ namespace PLS_Post_Processor
                 sw.WriteLine($@"42 '{plsDxfFullPath}' {code3D} {drawMode} {displayLabels} {longitude} {latitude}");
                 //sw.WriteLine($@"42 '{plsDxfFullPath}' 1 2 1 60 30");
                 //sw.WriteLine($@"42 '{stagingPath}\peIso.dxf' 1 2 0 20 30");
+                sw.WriteLine($@"42 '{plsDxfTopFullPath}' 1 2 0 0 90");
                 sw.WriteLine($@"42 '{plsDxfIsoFullPath}' 1 2 0 20 30");
                 sw.WriteLine("3 ; exit");
             }
@@ -144,7 +163,7 @@ namespace PLS_Post_Processor
         ///
         /// For Auto sized bitmap see URL: https://woutware.com/Forum/Topic/1962
         /// </remarks>
-        private static void DxfImageExporter()
+        private static void DxfImageExporter(string dxfFilePath)
         {
             ImageExportFormat format = ImageExportFormat.Png;
             if (format == ImageExportFormat.Unknown)
@@ -153,7 +172,7 @@ namespace PLS_Post_Processor
                 return;
             }
 
-            string dxfFilePath = plsDxfIsoFullPath; // plsDxfFullPath;
+            //string dxfFilePath = plsDxfIsoFullPath; // plsDxfFullPath;
             string sFormat = format.ToString().ToLower();
 
             DxfModel model = null;
