@@ -45,8 +45,8 @@ namespace PLS_Post_Processor
         public static void RunApp()
         {
             string polPath = ParsePolPath();
-            string stagingPath = @"c:\pls\temp\stage";
-            string uploadFile = @"c:\pls\temp\plsupload.zip";
+            string stagingPath = Globals.StagingPath; // @"c:\pls\temp\stage";
+            string uploadFile = Globals.UploadFile; // @"c:\pls\temp\plsupload.zip";
             string tempFileName = $"{Path.GetFileNameWithoutExtension(polPath)}__TEMP";
             string tempPolPath = Path.Combine(Path.GetDirectoryName(polPath),$"{tempFileName}{Path.GetExtension(polPath)}");
 
@@ -86,7 +86,7 @@ namespace PLS_Post_Processor
 
         private static string ParsePolPath()
         {
-            string postprocPath = @"c:\pls\temp\postproc.xml";
+            string postprocPath = Globals.PlsPostProcPath; // @"c:\pls\temp\postproc.xml";
 
             XmlDocument xdoc = new XmlDocument();
             xdoc.Load(postprocPath);
@@ -112,7 +112,7 @@ namespace PLS_Post_Processor
                 }
             }
 
-            string cmdFilePath = @"c:\pls\temp\postcmd.cmd";
+            string cmdFilePath = Globals.CmdFilePath; // @"c:\pls\temp\postcmd.cmd";
             plsDxfFullPath = $@"{stagingPath}\peFront.dxf";
             plsDxfTopFullPath = $@"{stagingPath}\peTop.dxf";
             plsDxfFrontFullPath = plsDxfFullPath; // $@"{stagingPath}\peFront.dxf";
@@ -139,16 +139,19 @@ namespace PLS_Post_Processor
                 sw.WriteLine("3 ; exit");
             }
 
-            File.Copy(@"c:\pls\temp\postproc.xml", $@"{stagingPath}\postproc.xml", true);
+            string pathToPostproc = Globals.PlsPostProcPath;
+            File.Copy(pathToPostproc, $@"{stagingPath}\postproc.xml", true);
+            //File.Copy(@"c:\pls\temp\postproc.xml", $@"{stagingPath}\postproc.xml", true);
         }
 
         private static void RunCommandFile()
         {
-                string pathToPls = @"C:\pls\pls_pole\pls_pole64.exe";
+            string pathToPls = Globals.PathToPlsExe; // @"C:\pls\pls_pole\pls_pole64.exe";
 
                 ProcessStartInfo psi = new ProcessStartInfo();
                 psi.FileName = pathToPls;
-                psi.Arguments = @"COMMAND c:\pls\temp\postcmd.cmd HIDE";
+                //psi.Arguments = @"COMMAND c:\pls\temp\postcmd.cmd HIDE";
+                psi.Arguments = $@"COMMAND {Globals.PathToPlsCmdFile} HIDE";
 
                 var proc = new Process { StartInfo = psi };
                 proc.Start();
