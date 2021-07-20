@@ -6,11 +6,11 @@ using System.Runtime.InteropServices;
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
 [assembly: AssemblyTitle("PLS Post Processor")]
-[assembly: AssemblyDescription("PLS Post Processing Functions to export PLS DXF drawing and bitmap(png) image of drawing")]
+[assembly: AssemblyDescription("PLS Post Processing Functions to export PLS DXF drawing, bitmap(png) image of drawing, and all PLS files in zip file.")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Sabre Industries, Inc.")]
 [assembly: AssemblyProduct("PLS Post Processor")]
-[assembly: AssemblyCopyright("Copyright ©  2020")]
+[assembly: AssemblyCopyright("Copyright ©  2021")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
@@ -32,5 +32,5 @@ using System.Runtime.InteropServices;
 // You can specify all the values or you can default the Build and Revision Numbers
 // by using the '*' as shown below:
 // [assembly: AssemblyVersion("1.0.*")]
-[assembly: AssemblyVersion("1.2.0.0")]
-[assembly: AssemblyFileVersion("1.2.0.0")]
+[assembly: AssemblyVersion("1.3.0.0")]
+[assembly: AssemblyFileVersion("1.3.0.0")]

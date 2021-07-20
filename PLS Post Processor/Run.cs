@@ -13,6 +13,7 @@ using WW.Math;
 using NLog;
 using WW.Cad.Model.Entities;
 using System.Collections.Generic;
+using System.Text;
 
 //using SixLabors.ImageSharp.PixelFormats;
 //using SixLabors.ImageSharp;
@@ -45,8 +46,11 @@ namespace PLS_Post_Processor
         public static void RunApp()
         {
             string polPath = ParsePolPath();
-            string stagingPath = Globals.StagingPath; // @"c:\pls\temp\stage";
-            string uploadFile = Globals.UploadFile; // @"c:\pls\temp\plsupload.zip";
+            string polFile = Path.GetFileName(polPath);
+
+            string wrkSpacePath = Path.GetDirectoryName(polPath);
+            string stagingPath = Globals.StagingPath;   // EG: "c:\pls\temp\stage"
+            string uploadFile = Globals.UploadFile;     // EG: "c:\pls\temp\plsupload.zip"
             string tempFileName = $"{Path.GetFileNameWithoutExtension(polPath)}__TEMP";
             string tempPolPath = Path.Combine(Path.GetDirectoryName(polPath),$"{tempFileName}{Path.GetExtension(polPath)}");
 
@@ -57,8 +61,9 @@ namespace PLS_Post_Processor
 
             File.Copy(polPath, tempPolPath, true);
 
-            string lcaPath = Path.ChangeExtension(polPath, "lca");
-            string tempLcaPath = Path.ChangeExtension(tempPolPath, "lca");
+            // *** Get the .lca file name used by PLS .POLE file.
+            string lcaPath = ParseLcaPath(polPath);
+
             if (!File.Exists(lcaPath))
             {
                 Console.WriteLine("LCA path does not exist!");
@@ -70,7 +75,11 @@ namespace PLS_Post_Processor
                 return;
             }
 
-            File.Copy(lcaPath, tempLcaPath, true);
+            // !!! Why is the .lca file copied to a temporary file??
+            // !!! As long as the .lca file defined in the .POL file exists
+            // !!! There is not need to rename the .lca file.
+            //string tempLcaPath = Path.ChangeExtension(tempPolPath, "lca");
+            //File.Copy(lcaPath, tempLcaPath, true);
 
             CreateCommandFile(tempPolPath, stagingPath);
             RunCommandFile();
@@ -80,13 +89,24 @@ namespace PLS_Post_Processor
             DxfImageExporter(plsDxfIsoFullPath);
 
             File.Delete(tempPolPath);
-            File.Delete(tempLcaPath);
+            //File.Delete(tempLcaPath);
+
+            // *** Delete the temporary files before zipping the workspace.
+            string wrkSpaceZip = Path.Combine(stagingPath, "WorkSpace.zip");
+            string lcaFile = Path.GetFileName(lcaPath);
+            Globals.SafelyCreateZipFromDirectory(wrkSpacePath, wrkSpaceZip, polFile, lcaFile);
+
+            // *** Zip the contents of the staging area into a zip'd file.
             ZipFile.CreateFromDirectory(stagingPath, uploadFile);
         }
 
+        /// <summary>
+        /// Get the .POL path which is defined in the postproc.xml file.
+        /// </summary>
+        /// <returns>Returns the project path defined in PLS postproc.xml</returns>
         private static string ParsePolPath()
         {
-            string postprocPath = Globals.PlsPostProcPath; // @"c:\pls\temp\postproc.xml";
+            string postprocPath = Globals.PlsPostProcPath; // EG: "c:\pls\temp\postproc.xml"
 
             XmlDocument xdoc = new XmlDocument();
             xdoc.Load(postprocPath);
@@ -96,6 +116,55 @@ namespace PLS_Post_Processor
 
             return polPath;
         }
+
+        /// <summary>
+        /// Parse the .lca path found in the .POL file.
+        /// </summary>
+        /// <returns></returns>
+        private static string ParseLcaPath(string polPath)
+        {
+            if (!File.Exists(polPath))
+            {
+                return string.Empty;
+            }
+
+            // *** Read contents of .POL file even if it's open by another process.
+            string polContent = string.Empty;
+            using (var fs = new FileStream(polPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            using (var sr = new StreamReader(fs, Encoding.Default))
+            {
+                polContent = sr.ReadToEnd();
+            }
+
+            var search = new[] {Environment.NewLine, @"\r\n"};
+            string[] polLines = polContent.Split(search, StringSplitOptions.None);
+            List<string> lcaLines = new List<string>();
+
+            foreach (var polLine in polLines)
+            {
+                int idxSkip = polLine.IndexOf(".lca,");
+                int idx = polLine.IndexOf(".lca");
+                if (idx >= 0 && idxSkip < 0)
+                {
+                    lcaLines.Add(polLine);
+                }
+            }
+
+            if (lcaLines.Count <= 0 || lcaLines.Count > 1)
+            {
+                Console.WriteLine("LCA path could not be found!");
+                Console.WriteLine($@"{polPath}");
+                Console.WriteLine("");
+                Console.WriteLine("PLS Post Processor terminated! No DXF or PNG files created.");
+                Console.WriteLine("Press any key to exit...");
+                Console.ReadKey();
+                return string.Empty;
+            }
+
+            // *** The first line will be the path to the .lca file.
+            return lcaLines[0];
+        }
+
 
         private static void CreateCommandFile(string tempPolPath, string stagingPath)
         {
@@ -120,7 +189,7 @@ namespace PLS_Post_Processor
 
             // *** PLS API parameters for DXF.
             string code3D = "1";            // 1 = 3D, 0 = 2D
-            string drawMode = "2";          // 0 = line, 1 = wireframe, 2 = rendered
+            string drawMode = "2";          // 0 = line, 1 = wire frame, 2 = rendered
             string displayLabels = "1";     // 1 = on, 0 = off
             //string longitude = "20";        // longitude of view in degrees
             //string latitude = "30";         // latitude of view in degrees

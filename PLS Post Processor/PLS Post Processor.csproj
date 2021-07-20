@@ -126,6 +126,8 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
+    <None Include="Misc\PLS Post Processor Flowchart.drawio" />
+    <None Include="Misc\PLS-Pole analysis and design Procedure.docx" />
     <None Include="Misc\postcmd.cmd" />
     <None Include="NLog.config">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
@@ -152,6 +154,7 @@
     <Folder Include="CadLib\" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="Misc\PLS Post Processor Flowchart.png" />
     <Content Include="Misc\PLS Post Processor Options.png" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
