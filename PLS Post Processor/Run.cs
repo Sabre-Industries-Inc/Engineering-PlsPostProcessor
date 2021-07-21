@@ -14,6 +14,7 @@ using NLog;
 using WW.Cad.Model.Entities;
 using System.Collections.Generic;
 using System.Text;
+using PLS_Post_Processor.Helpers;
 
 //using SixLabors.ImageSharp.PixelFormats;
 //using SixLabors.ImageSharp;
@@ -45,6 +46,8 @@ namespace PLS_Post_Processor
 
         public static void RunApp()
         {
+            ConsoleUtility.WriteProgressBar("Begin", 0);
+
             string polPath = ParsePolPath();
             string polFile = Path.GetFileName(polPath);
 
@@ -81,8 +84,12 @@ namespace PLS_Post_Processor
             //string tempLcaPath = Path.ChangeExtension(tempPolPath, "lca");
             //File.Copy(lcaPath, tempLcaPath, true);
 
+            ConsoleUtility.WriteProgressBar("Create Command File: get DXF's from PLS", 20, update: true, wait: true);
+
             CreateCommandFile(tempPolPath, stagingPath);
             RunCommandFile();
+
+            ConsoleUtility.WriteProgressBar("Generate PNG's", 40, update: true, wait: true);
 
             DxfImageExporter(plsDxfFrontFullPath);
             DxfImageExporter(plsDxfTopFullPath);
@@ -92,12 +99,18 @@ namespace PLS_Post_Processor
             //File.Delete(tempLcaPath);
 
             // *** Delete the temporary files before zipping the workspace.
+            ConsoleUtility.WriteProgressBar("Zip PLS workspace files", 60, update: true, wait: true);
+
             string wrkSpaceZip = Path.Combine(stagingPath, "WorkSpace.zip");
             string lcaFile = Path.GetFileName(lcaPath);
             Globals.SafelyCreateZipFromDirectory(wrkSpacePath, wrkSpaceZip, polFile, lcaFile);
 
             // *** Zip the contents of the staging area into a zip'd file.
+            ConsoleUtility.WriteProgressBar("Zip ALL", 80, update: true, wait: true);
+
             ZipFile.CreateFromDirectory(stagingPath, uploadFile);
+
+            ConsoleUtility.WriteProgressBar("Complete", 100, update: true, wait: true);
         }
 
         /// <summary>
