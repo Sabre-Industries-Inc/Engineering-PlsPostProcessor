@@ -69,18 +69,21 @@ namespace PLS_Post_Processor
 
             if (!File.Exists(lcaPath))
             {
-                Console.WriteLine("LCA path does not exist!");
-                Console.WriteLine($@"{lcaPath}");
-                Console.WriteLine("");
-                Console.WriteLine("PLS Post Processor terminated! No DXF or PNG files created.");
-                Console.WriteLine("Press any key to exit...");
-                Console.ReadKey();
+                ConsoleMessage errMsg = new ConsoleMessage(MessageType.Error,
+                    "LCA path does not exist!\r\n" +
+                        $@"{lcaPath}" +
+                        "\r\n\r\n" +
+                        "PLS Post Processor terminated!\r\n" +
+                        "No DXF, PNG, or zip files created."
+                    );
+
+                ConsoleMessages.Instance.AddMessage(errMsg);
                 return;
             }
 
             // !!! Why is the .lca file copied to a temporary file??
             // !!! As long as the .lca file defined in the .POL file exists
-            // !!! There is not need to rename the .lca file.
+            // !!! There is no need to rename the .lca file.
             //string tempLcaPath = Path.ChangeExtension(tempPolPath, "lca");
             //File.Copy(lcaPath, tempLcaPath, true);
 
@@ -132,6 +135,7 @@ namespace PLS_Post_Processor
 
         /// <summary>
         /// Parse the .lca path found in the .POL file.
+        /// Used to determine if the .lca file exists.
         /// </summary>
         /// <returns></returns>
         private static string ParseLcaPath(string polPath)
@@ -165,12 +169,15 @@ namespace PLS_Post_Processor
 
             if (lcaLines.Count <= 0 || lcaLines.Count > 1)
             {
-                Console.WriteLine("LCA path could not be found!");
-                Console.WriteLine($@"{polPath}");
-                Console.WriteLine("");
-                Console.WriteLine("PLS Post Processor terminated! No DXF or PNG files created.");
-                Console.WriteLine("Press any key to exit...");
-                Console.ReadKey();
+                ConsoleMessage errMsg = new ConsoleMessage(MessageType.Error,
+                    "LCA path could not be found!\r\n" +
+                    $@"{polPath}" +
+                    "\r\n\r\n" +
+                    "PLS Post Processor terminated!\r\n" +
+                    "No DXF, PNG, or zip files created."
+                );
+
+                ConsoleMessages.Instance.AddMessage(errMsg);
                 return string.Empty;
             }
 

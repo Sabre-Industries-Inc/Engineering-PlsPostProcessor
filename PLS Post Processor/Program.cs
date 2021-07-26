@@ -12,11 +12,11 @@ namespace PLS_Post_Processor
     {
         static void Main(string[] args)
         {
+            //TestConsoleUtility();
+
             Run.RunApp();
 
-            //Console.WriteLine();
-            //Console.WriteLine("Press Space Bar to terminate...");
-            //Console.ReadKey();
+            ConsoleMessages.Instance.ShowAllMessages();
         }
 
         static void TestConsoleUtility()

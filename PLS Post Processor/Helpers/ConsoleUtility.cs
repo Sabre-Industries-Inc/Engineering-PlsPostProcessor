@@ -20,19 +20,25 @@ namespace PLS_Post_Processor.Helpers
     {
         const char _block = '■';
         const string _back = "\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b";
-        //const string _back = "\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b";
         const string _twirl = "-\\|/";
 
-        private static List<ConsoleColor> _variousColors = new List<ConsoleColor>
-        {
-            ConsoleColor.Cyan,
-            ConsoleColor.Green,
-            ConsoleColor.Magenta,
-            ConsoleColor.Red,
-            ConsoleColor.Blue,
-            ConsoleColor.White,
-            ConsoleColor.Yellow
-        };
+        //private static Dictionary<MessageType, ConsoleColor> _consoleColors = new Dictionary<MessageType, ConsoleColor>
+        //{
+        //    {MessageType.Standard, ConsoleColor.Green },
+        //    {MessageType.Warning, ConsoleColor.Yellow },
+        //    {MessageType.Error, ConsoleColor.Red },
+        //};
+
+        //private static List<ConsoleColor> _variousColors = new List<ConsoleColor>
+        //{
+        //    ConsoleColor.Cyan,
+        //    ConsoleColor.Green,
+        //    ConsoleColor.Magenta,
+        //    ConsoleColor.Red,
+        //    ConsoleColor.Blue,
+        //    ConsoleColor.White,
+        //    ConsoleColor.Yellow
+        //};
 
         public static void WriteProgressBar(int percent, bool update = false)
         {
@@ -71,11 +77,11 @@ namespace PLS_Post_Processor.Helpers
                 Console.SetCursorPosition(0, 0); // - 2);
             }
 
-            Random rand = new Random(percent);
-            int j = _variousColors.Count - 1;
-            int k = rand.Next(0, j);
+            //Random rand = new Random(percent);
+            //int j = _variousColors.Count - 1;
+            //int k = rand.Next(0, j);
 
-            Console.ForegroundColor = _variousColors[k]; // ConsoleColor.Yellow;
+            Console.ForegroundColor = Globals.MsgTypeColors[MessageType.Standard];
 
             Console.Write("[");
             //var p = (int)((percent / 10f)+.5f);

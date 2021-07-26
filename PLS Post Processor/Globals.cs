@@ -6,6 +6,7 @@ using System.Linq;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Threading.Tasks;
+using PLS_Post_Processor.Helpers;
 
 namespace PLS_Post_Processor
 {
@@ -42,6 +43,13 @@ namespace PLS_Post_Processor
         /// The full path to the PLS executable on the local PC.
         /// </summary>
         public const string PathToPlsCmdFile = @"C:\PLS\Temp\postcmd.cmd";
+
+        public static Dictionary<MessageType, ConsoleColor> MsgTypeColors = new Dictionary<MessageType, ConsoleColor>
+        {
+            {MessageType.Standard, ConsoleColor.Green },
+            {MessageType.Warning, ConsoleColor.Yellow },
+            {MessageType.Error, ConsoleColor.Red },
+        };
 
         /// <summary>
         /// Create a zip file for a directory even if some of the files are
