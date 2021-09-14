@@ -15,6 +15,7 @@ using WW.Cad.Model.Entities;
 using System.Collections.Generic;
 using System.Text;
 using PLS_Post_Processor.Helpers;
+using System.Text.RegularExpressions;
 
 //using SixLabors.ImageSharp.PixelFormats;
 //using SixLabors.ImageSharp;
@@ -44,6 +45,8 @@ namespace PLS_Post_Processor
 
         private const int maxPlsWaitTimeMilli = 5000;  // ==> milliseconds
 
+        private static List<string> _plsPolDependecies = new List<string>();
+
         public static void RunApp()
         {
             ConsoleUtility.WriteProgressBar("Begin", 0);
@@ -57,29 +60,42 @@ namespace PLS_Post_Processor
             string tempFileName = $"{Path.GetFileNameWithoutExtension(polPath)}__TEMP";
             string tempPolPath = Path.Combine(Path.GetDirectoryName(polPath),$"{tempFileName}{Path.GetExtension(polPath)}");
 
-            if (File.Exists(uploadFile))
+             if (File.Exists(uploadFile))
             {
                 File.Delete(uploadFile);
             }
 
             File.Copy(polPath, tempPolPath, true);
 
-            // *** Get the .lca file name used by PLS .POLE file.
-            string lcaPath = ParseLcaPath(polPath);
-
-            if (!File.Exists(lcaPath))
+            int err = GetAllPolDependencies(polPath);
+            if (err > 90)
             {
                 ConsoleMessage errMsg = new ConsoleMessage(MessageType.Error,
-                    "LCA path does not exist!\r\n" +
-                        $@"{lcaPath}" +
-                        "\r\n\r\n" +
-                        "PLS Post Processor terminated!\r\n" +
-                        "No DXF, PNG, or zip files created."
-                    );
+                    $"Error: parsing .POL for dependencies!\r\n" +
+                    "PLS Post Processor terminated!\r\n" +
+                    "No DXF, PNG, or zip files created."
+                );
 
                 ConsoleMessages.Instance.AddMessage(errMsg);
                 return;
             }
+
+            //// *** Get the .lca file name used by PLS .POLE file.
+            //string lcaPath = ParseLcaPath(polPath);
+
+            //if (!File.Exists(lcaPath))
+            //{
+            //    ConsoleMessage errMsg = new ConsoleMessage(MessageType.Error,
+            //        "LCA path does not exist!\r\n" +
+            //            $@"{lcaPath}" +
+            //            "\r\n\r\n" +
+            //            "PLS Post Processor terminated!\r\n" +
+            //            "No DXF, PNG, or zip files created."
+            //        );
+
+            //    ConsoleMessages.Instance.AddMessage(errMsg);
+            //    return;
+            //}
 
             // !!! Why is the .lca file copied to a temporary file??
             // !!! As long as the .lca file defined in the .POL file exists
@@ -104,9 +120,10 @@ namespace PLS_Post_Processor
             // *** Delete the temporary files before zipping the workspace.
             ConsoleUtility.WriteProgressBar("Zip PLS workspace files", 60, update: true, wait: true);
 
-            string wrkSpaceZip = Path.Combine(stagingPath, "WorkSpace.zip");
-            string lcaFile = Path.GetFileName(lcaPath);
-            Globals.SafelyCreateZipFromDirectory(wrkSpacePath, wrkSpaceZip, polFile, lcaFile);
+            //string wrkSpaceZip = Path.Combine(stagingPath, "WorkSpace.zip");
+            //string lcaFile = "test.lca"; // Path.GetFileName(lcaPath);
+            //Globals.SafelyCreateZipFromDirectory(wrkSpacePath, wrkSpaceZip, polFile, lcaFile);
+            //Globals.SafelyCreateZipFromStaging(stagingPath, wrkSpaceZip);
 
             // *** Zip the contents of the staging area into a zip'd file.
             ConsoleUtility.WriteProgressBar("Zip ALL", 80, update: true, wait: true);
@@ -131,6 +148,127 @@ namespace PLS_Post_Processor
             string polPath = nl[0].Attributes["projectpath"].Value;
 
             return polPath;
+        }
+
+        /// <summary>
+        /// Parse the .lca path found in the .POL file.
+        /// Used to determine if the .lca file exists.
+        /// </summary>
+        /// <returns>Return the error status: 99 = error, 0 no errors</returns>
+        private static int GetAllPolDependencies(string polPath)
+        {
+            if (!File.Exists(polPath))
+            {
+                ConsoleMessage errMsg = new ConsoleMessage(MessageType.Error,
+                    $".POL has not been defined: {polPath}!\r\n" +
+                    $"{polPath}\r\n\r\n" +
+                    "PLS Post Processor terminated!\r\n" +
+                    "No DXF, PNG, or zip files created."
+                );
+
+                ConsoleMessages.Instance.AddMessage(errMsg);
+                return 99;
+            }
+
+            // *** Read contents of .POL file even if it's open by another process.
+            string polContent = string.Empty;
+            using (var fs = new FileStream(polPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            using (var sr = new StreamReader(fs, Encoding.Default))
+            {
+                polContent = sr.ReadToEnd();
+            }
+
+            var search = new[] { Environment.NewLine, @"\r\n" };
+            string[] polLines = polContent.Split(search, StringSplitOptions.None);
+            //List<string> lcaLines = new List<string>();
+
+            _plsPolDependecies = new List<string> { polPath };
+
+            string inclDrives = Globals.PlsPolSearchDrives;
+            string pattern = $@"^[{inclDrives}]:\\";
+            Regex regex = new Regex(pattern);
+            foreach (var polLine in polLines)
+            {
+                Match match = regex.Match(polLine);
+                if (match.Success)
+                {
+                    _plsPolDependecies.Add(polLine.Trim());
+                }
+            }
+
+            if (_plsPolDependecies.Count <= 0)
+            {
+                ConsoleMessage errMsg = new ConsoleMessage(MessageType.Error,
+                    $"Paths to dependencies could not be found! r\n" +
+                    $"{polPath}\r\n\r\n" +
+                    "PLS Post Processor terminated!\r\n" +
+                    "No DXF, PNG, or zip files created."
+                );
+
+                ConsoleMessages.Instance.AddMessage(errMsg);
+                return 99;
+            }
+
+            // *** the .lca file must exist otherwise PLS will not run.
+            var lca = _plsPolDependecies.Find(f => f.EndsWith("lca"));
+            var lcaFound = !string.IsNullOrEmpty(lca);
+            if (!lcaFound)
+            {
+                ConsoleMessage errMsg = new ConsoleMessage(MessageType.Error,
+                    "LCA path could not be found!\r\n" +
+                    $"{polPath}\r\n\r\n" +
+                    "PLS Post Processor terminated!\r\n" +
+                    "No DXF, PNG, or zip files created."
+                );
+                ConsoleMessages.Instance.AddMessage(errMsg);
+                return 99;
+            }
+
+            // *** Copy all POL dependencies to WorkSpace under Staging
+            string stagingPath = Globals.StagingPath;   // EG: "c:\pls\temp\stage"
+            string workSpacePath = Path.Combine(stagingPath, Globals.WorkspaceName);
+            if (!Directory.Exists(workSpacePath))
+            {
+                Directory.CreateDirectory(workSpacePath);
+            }
+            else
+            {
+                foreach (var f in Directory.GetFiles(workSpacePath))
+                {
+                    File.Delete(f);
+                }
+            }
+
+            // *** Copy the .pol file and all dependencies
+            foreach (var file in _plsPolDependecies)
+            {
+                if (!File.Exists(file))
+                {
+                    ConsoleMessage errMsg = new ConsoleMessage(MessageType.Error,
+                        $"{file} not found in: \r\n" +
+                        $"{polPath}\r\n\r\n" +
+                        "Did you save the PLS model before 'Run'?" +
+                        "File skipped!\r\n"
+                    );
+
+                    ConsoleMessages.Instance.AddMessage(errMsg);
+                    continue;
+                }
+
+                // *** skip the Post Processor executable.
+                string ext = Path.GetExtension(file);
+                if (ext.Equals(".exe", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                string fileName = Path.GetFileName(file);
+                string to = Path.Combine(workSpacePath, fileName);
+                File.Copy(file, to, overwrite: true);
+            }
+
+            // *** Return error status: 0 = everything worked.
+            return 0;
         }
 
         /// <summary>
@@ -185,7 +323,11 @@ namespace PLS_Post_Processor
             return lcaLines[0];
         }
 
-
+        /// <summary>
+        /// Create the PLS command file.
+        /// </summary>
+        /// <param name="tempPolPath"></param>
+        /// <param name="stagingPath"></param>
         private static void CreateCommandFile(string tempPolPath, string stagingPath)
         {
 

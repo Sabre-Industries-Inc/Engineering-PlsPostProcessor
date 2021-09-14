@@ -25,6 +25,12 @@ namespace PLS_Post_Processor
         public const string StagingPath = @"C:\pls\temp\stage";
 
         /// <summary>
+        /// The directory name under StagingPath which will contain
+        /// all POL dependencies including the .pol file.
+        /// </summary>
+        public const string WorkspaceName = "Workspace";
+
+        /// <summary>
         /// The full path where the zip'd PLS up load file is located.
         /// </summary>
         public const string UploadFile = @"C:\pls\temp\plsupload.zip";
@@ -52,6 +58,13 @@ namespace PLS_Post_Processor
         };
 
         /// <summary>
+        /// The Regex search pattern to find all file dependencies.
+        /// Dependencies are lines in the .pol file which start with
+        /// drive:\  EG C:\
+        /// </summary>
+        public const string PlsPolSearchDrives = "C, Q";
+
+        /// <summary>
         /// Create a zip file for a directory even if some of the files are
         /// being used by another process.
         /// </summary>
@@ -61,50 +74,119 @@ namespace PLS_Post_Processor
         /// <remarks>
         /// See URL: https://forum.rebex.net/3392/add-a-file-into-ziparchive-if-it-used-by-another-process
         /// </remarks>
-        public static void SafelyCreateZipFromDirectory(string sourceDirectoryName, string zipFilePath, string polFile, string lcaFile)
+        public static void SafelyCreateZipFromStaging(string stagingPath, string zipFilePath)
         {
-            using (FileStream zipToOpen = new FileStream(zipFilePath, FileMode.Create, FileAccess.Write)) //, FileShare.ReadWrite))
-            using (ZipArchive archive = new ZipArchive(zipToOpen, ZipArchiveMode.Create))
+            try
             {
-                foreach (var file in Directory.GetFiles(sourceDirectoryName))
+                using (FileStream zipToOpen = new FileStream(zipFilePath, FileMode.Create, FileAccess.Write)) //, FileShare.ReadWrite))
+                using (ZipArchive archive = new ZipArchive(zipToOpen, ZipArchiveMode.Create))
                 {
-                    string ext = Path.GetExtension(file);
-
-                    // *** Only save the current .POL or .lca file.  There may be multiple
-                    // *** .POL or .lca files in the source directory.
-                    if (IgnoreThisFile(file, polFile, ".POL"))
+                    foreach (var file in Directory.GetFiles(stagingPath))
                     {
-                        continue;
-                    }
+                        string ext = Path.GetExtension(file);
 
-                    if (IgnoreThisFile(file, lcaFile, ".lca"))
-                    {
-                        continue;
-                    }
+                        //// *** Only save the current .POL or .lca file.  There may be multiple
+                        //// *** .POL or .lca files in the source directory.
+                        //if (IgnoreThisFile(file, polFile, ".POL"))
+                        //{
+                        //    continue;
+                        //}
 
-                    if (ext.Equals(".bak", StringComparison.OrdinalIgnoreCase))
-                    {
-                        continue;
-                    }
+                        //if (IgnoreThisFile(file, lcaFile, ".lca"))
+                        //{
+                        //    continue;
+                        //}
 
-                    // *** Skip any locked files.
-                    if (file.EndsWith(".lock"))
-                    {
-                        continue;
-                    }
+                        if (ext.Equals(".bak", StringComparison.OrdinalIgnoreCase))
+                        {
+                            continue;
+                        }
 
-                    var entryName = Path.GetFileName(file);
-                    var entry = archive.CreateEntry(entryName);
-                    entry.LastWriteTime = File.GetLastWriteTime(file);
-                    using (var fs = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
-                    using (var stream = entry.Open())
-                    {
-                        var numBytes = fs.Length;
-                        fs.CopyTo(stream);
+                        // *** Skip any locked files.
+                        if (ext.Equals(".lock", StringComparison.OrdinalIgnoreCase))
+                        {
+                            continue;
+                        }
+
+                        // *** Skip any zip files.
+                        if (ext.Equals(".zip", StringComparison.OrdinalIgnoreCase))
+                        {
+                            continue;
+                        }
+
+                        var entryName = Path.GetFileName(file);
+                        var entry = archive.CreateEntry(entryName);
+                        entry.LastWriteTime = File.GetLastWriteTime(file);
+                        using (var fs = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                        using (var stream = entry.Open())
+                        {
+                            var numBytes = fs.Length;
+                            fs.CopyTo(stream);
+                        }
                     }
                 }
             }
+            catch (Exception e)
+            {
+                string msg = $"Error: {e.Message}";
+                throw;
+            }
         }
+
+        ///// <summary>
+        ///// Create a zip file for a directory even if some of the files are
+        ///// being used by another process.
+        ///// </summary>
+        ///// <param name="sourceDirectoryName">The source directory being zip'd</param>
+        ///// <param name="zipFilePath">The zip file name containing the directory contents zip'd.</param>
+        ///// <param name="polFile">The current .POL file. If defined, ignore all other .POL files.</param>
+        ///// <remarks>
+        ///// See URL: https://forum.rebex.net/3392/add-a-file-into-ziparchive-if-it-used-by-another-process
+        ///// </remarks>
+        //public static void SafelyCreateZipFromDirectory(string sourceDirectoryName, string zipFilePath, string polFile, string lcaFile)
+        //{
+        //    using (FileStream zipToOpen = new FileStream(zipFilePath, FileMode.Create, FileAccess.Write)) //, FileShare.ReadWrite))
+        //    using (ZipArchive archive = new ZipArchive(zipToOpen, ZipArchiveMode.Create))
+        //    {
+        //        foreach (var file in Directory.GetFiles(sourceDirectoryName))
+        //        {
+        //            string ext = Path.GetExtension(file);
+
+        //            // *** Only save the current .POL or .lca file.  There may be multiple
+        //            // *** .POL or .lca files in the source directory.
+        //            if (IgnoreThisFile(file, polFile, ".POL"))
+        //            {
+        //                continue;
+        //            }
+
+        //            if (IgnoreThisFile(file, lcaFile, ".lca"))
+        //            {
+        //                continue;
+        //            }
+
+        //            if (ext.Equals(".bak", StringComparison.OrdinalIgnoreCase))
+        //            {
+        //                continue;
+        //            }
+
+        //            // *** Skip any locked files.
+        //            if (file.EndsWith(".lock"))
+        //            {
+        //                continue;
+        //            }
+
+        //            var entryName = Path.GetFileName(file);
+        //            var entry = archive.CreateEntry(entryName);
+        //            entry.LastWriteTime = File.GetLastWriteTime(file);
+        //            using (var fs = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+        //            using (var stream = entry.Open())
+        //            {
+        //                var numBytes = fs.Length;
+        //                fs.CopyTo(stream);
+        //            }
+        //        }
+        //    }
+        //}
 
         /// <summary>
         /// Ignore this file from the PLS workspace
