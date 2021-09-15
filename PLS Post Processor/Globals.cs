@@ -33,7 +33,7 @@ namespace PLS_Post_Processor
         /// <summary>
         /// The full path where the zip'd PLS up load file is located.
         /// </summary>
-        public const string UploadFile = @"C:\pls\temp\plsupload.zip";
+        public const string UploadFile = @"C:\pls\temp\PlsUpload.zip";
 
         /// <summary>
         /// The PLS command file containing commands to create DXF' and PNG images.
@@ -58,19 +58,24 @@ namespace PLS_Post_Processor
         };
 
         /// <summary>
+        /// The number of seconds to pause when the post processor is done.
+        /// The pause is to give the engineer time to look at the console display.
+        /// </summary>
+        public static decimal ConsolePauseWhenDone = 1.5m;
+
+        /// <summary>
         /// The Regex search pattern to find all file dependencies.
         /// Dependencies are lines in the .pol file which start with
         /// drive:\  EG C:\
         /// </summary>
-        public const string PlsPolSearchDrives = "C, Q";
+        public const string PlsPolRegexPatterh = @"^[C, I, Q]:\\";
 
         /// <summary>
         /// Create a zip file for a directory even if some of the files are
         /// being used by another process.
         /// </summary>
-        /// <param name="sourceDirectoryName">The source directory being zip'd</param>
+        /// <param name="stagingPath">The path to the staging directory.</param>
         /// <param name="zipFilePath">The zip file name containing the directory contents zip'd.</param>
-        /// <param name="polFile">The current .POL file. If defined, ignore all other .POL files.</param>
         /// <remarks>
         /// See URL: https://forum.rebex.net/3392/add-a-file-into-ziparchive-if-it-used-by-another-process
         /// </remarks>
@@ -84,18 +89,6 @@ namespace PLS_Post_Processor
                     foreach (var file in Directory.GetFiles(stagingPath))
                     {
                         string ext = Path.GetExtension(file);
-
-                        //// *** Only save the current .POL or .lca file.  There may be multiple
-                        //// *** .POL or .lca files in the source directory.
-                        //if (IgnoreThisFile(file, polFile, ".POL"))
-                        //{
-                        //    continue;
-                        //}
-
-                        //if (IgnoreThisFile(file, lcaFile, ".lca"))
-                        //{
-                        //    continue;
-                        //}
 
                         if (ext.Equals(".bak", StringComparison.OrdinalIgnoreCase))
                         {
@@ -128,8 +121,14 @@ namespace PLS_Post_Processor
             }
             catch (Exception e)
             {
-                string msg = $"Error: {e.Message}";
-                throw;
+                ConsoleMessage errMsg = new ConsoleMessage(MessageType.Error,
+                    $"Error creating zip file!\r\n" +
+                    $"{stagingPath}\r\n\r\n" +
+                    $"Error: {e.Message}\r\n" +
+                    "No zip file created."
+                );
+
+                ConsoleMessages.Instance.AddMessage(errMsg);
             }
         }
 
@@ -188,29 +187,29 @@ namespace PLS_Post_Processor
         //    }
         //}
 
-        /// <summary>
-        /// Ignore this file from the PLS workspace
-        /// </summary>
-        /// <param name="currentFileName">The current file being processed</param>
-        /// <param name="chkFile">The file to check against.</param>
-        /// <param name="ext">The file extension being checked.</param>
-        /// <returns></returns>
-        private static bool IgnoreThisFile(string currentFileName, string chkFile, string ext)
-        {
-            // *** Only save the current .POL.  There may be multiple .POL files
-            // *** in the source directory.
-            string fileName = Path.GetFileName(currentFileName);
-            bool isFileExt = fileName.EndsWith(ext, StringComparison.OrdinalIgnoreCase);
-            if (isFileExt)
-            {
-                bool ignoreThisFile = !fileName.Equals(chkFile, StringComparison.OrdinalIgnoreCase);
-                if (ignoreThisFile)
-                {
-                    return true;
-                }
-            }
+        ///// <summary>
+        ///// Ignore this file from the PLS workspace
+        ///// </summary>
+        ///// <param name="currentFileName">The current file being processed</param>
+        ///// <param name="chkFile">The file to check against.</param>
+        ///// <param name="ext">The file extension being checked.</param>
+        ///// <returns></returns>
+        //private static bool IgnoreThisFile(string currentFileName, string chkFile, string ext)
+        //{
+        //    // *** Only save the current .POL.  There may be multiple .POL files
+        //    // *** in the source directory.
+        //    string fileName = Path.GetFileName(currentFileName);
+        //    bool isFileExt = fileName.EndsWith(ext, StringComparison.OrdinalIgnoreCase);
+        //    if (isFileExt)
+        //    {
+        //        bool ignoreThisFile = !fileName.Equals(chkFile, StringComparison.OrdinalIgnoreCase);
+        //        if (ignoreThisFile)
+        //        {
+        //            return true;
+        //        }
+        //    }
 
-            return false;
-        }
+        //    return false;
+        //}
     }
 }

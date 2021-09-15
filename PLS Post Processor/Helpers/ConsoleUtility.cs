@@ -109,5 +109,15 @@ namespace PLS_Post_Processor.Helpers
                 Console.Write("\b");
             Console.Write(_twirl[progress % _twirl.Length]);
         }
+
+        /// <summary>
+        /// Pause the console for the given number of seconds.
+        /// </summary>
+        /// <param name="seconds"></param>
+        public static void Pause(decimal seconds)
+        {
+            int milSeconds = (int) (seconds * 1000.0m);
+            Thread.Sleep(milSeconds);
+        }
     }
 }
