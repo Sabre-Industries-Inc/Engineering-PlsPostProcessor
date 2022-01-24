@@ -169,7 +169,7 @@ namespace PLS_Post_Processor
             // *** Get all file dependencies from the .POL file.
             List<string> dependecies = new List<string> { polPath };
 
-            string pattern = Globals.PlsPolRegexPatterh;
+            string pattern = Globals.PlsPolRegexPattern;
             Regex regex = new Regex(pattern);
             foreach (var polLine in polLines)
             {
@@ -186,7 +186,7 @@ namespace PLS_Post_Processor
             if (_plsPolDependecies.Count <= 1)
             {
                 ConsoleMessage errMsg = new ConsoleMessage(MessageType.Error,
-                    $"Paths to dependencies could not be found! r\n" +
+                    $"Paths to dependencies could not be found! \r\n" +
                     $"{polPath}\r\n\r\n" +
                     "PLS Post Processor terminated!\r\n" +
                     "No DXF, PNG, or zip files created.\r\n\r\n" +

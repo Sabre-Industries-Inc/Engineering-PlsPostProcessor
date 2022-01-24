@@ -123,6 +123,7 @@
     <Compile Include="Helpers\ConsoleMessage.cs" />
     <Compile Include="Helpers\ConsoleMessages.cs" />
     <Compile Include="Helpers\ConsoleUtility.cs" />
+    <Compile Include="Helpers\MyExtensions.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Run.cs" />

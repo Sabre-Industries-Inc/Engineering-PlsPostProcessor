@@ -68,7 +68,13 @@ namespace PLS_Post_Processor
         /// Dependencies are lines in the .pol file which start with
         /// drive:\  EG C:\
         /// </summary>
-        public const string PlsPolRegexPatterh = @"^[C, I, Q]:\\";
+        public const string PlsPolRegexPattern = @"^[C, I, Q]:\\|^\\\\txal-netapp1b\.sabre\.local\\QDrive";
+        //public const string PlsPolRegexPattern = @"^[C, I, Q]:\\";
+
+        /// <summary>
+        /// The Remote path to the local Q: drive.
+        /// </summary>
+        public const string QdriveUrl = @"\\txal-netapp1b.sabre.local\QDrive";
 
         /// <summary>
         /// Create a zip file for a directory even if some of the files are
