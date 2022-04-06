@@ -57,6 +57,15 @@ namespace PLS_Post_Processor
             string tempFileName = $"{Path.GetFileNameWithoutExtension(polPath)}__TEMP";
             string tempPolPath = Path.Combine(Path.GetDirectoryName(polPath), $"{tempFileName}{Path.GetExtension(polPath)}");
 
+            if (!Directory.Exists(stagingPath))
+            {
+                Directory.CreateDirectory(stagingPath);
+
+                ConsoleMessage stageDirMsg = new ConsoleMessage(MessageType.Standard,
+                    $"PLS stage directory did not exists. It has been created.\r\n");
+                ConsoleMessages.Instance.AddMessage(stageDirMsg);
+            }
+
             if (File.Exists(uploadFile))
             {
                 File.Delete(uploadFile);
