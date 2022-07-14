@@ -43,7 +43,13 @@ namespace PLS_Post_Processor
         /// <summary>
         /// The full path to the PLS executable on the local PC.
         /// </summary>
-        public const string PathToPlsExe = @"C:\PLS\pls_pole\pls_pole64.exe";
+        public const string PathToPlsExe = @"C:\Program Files\PLS\pls_pole\pls_pole64.exe";
+
+        /// <summary>
+        /// The full path to the PLS executable on the local PC
+        /// before PLS version 17.xx
+        /// </summary>
+        public const string PathToPre17PlsExe = @"C:\PLS\pls_pole\pls_pole64.exe";
 
         /// <summary>
         /// The full path to the PLS executable on the local PC.

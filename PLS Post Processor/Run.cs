@@ -180,10 +180,12 @@ namespace PLS_Post_Processor
 
             string pattern = Globals.PlsPolRegexPattern;
             Regex regex = new Regex(pattern);
+            Regex extRegex = new Regex(@"\.[0-9a-z]+$", RegexOptions.IgnoreCase);
             foreach (var polLine in polLines)
             {
                 Match match = regex.Match(polLine);
-                if (match.Success)
+                Match extMatch = extRegex.Match(polLine);
+                if (match.Success && extMatch.Success)
                 {
                     dependecies.Add(polLine.Trim());
                 }
@@ -322,11 +324,13 @@ namespace PLS_Post_Processor
 
         private static void RunCommandFile()
         {
-            string pathToPls = Globals.PathToPlsExe; // @"C:\pls\pls_pole\pls_pole64.exe";
+            string curPathToPls = Globals.PathToPlsExe;
+            string pre17PathToPls = Globals.PathToPlsExe;
+
+            string pathToPls = (File.Exists(curPathToPls) ? curPathToPls : pre17PathToPls);
 
             ProcessStartInfo psi = new ProcessStartInfo();
             psi.FileName = pathToPls;
-            //psi.Arguments = @"COMMAND c:\pls\temp\postcmd.cmd HIDE";
             psi.Arguments = $@"COMMAND {Globals.PathToPlsCmdFile} HIDE";
 
             var proc = new Process { StartInfo = psi };
