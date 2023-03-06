@@ -325,9 +325,24 @@ namespace PLS_Post_Processor
         private static void RunCommandFile()
         {
             string curPathToPls = Globals.PathToPlsExe;
-            string pre17PathToPls = Globals.PathToPlsExe;
+            string pre17PathToPls = Globals.PathToPre17PlsExe;
 
-            string pathToPls = (File.Exists(curPathToPls) ? curPathToPls : pre17PathToPls);
+            string pathToPls = string.Empty;
+
+            if (File.Exists(curPathToPls))
+            {
+                pathToPls = curPathToPls;
+            }
+            else if (File.Exists(pre17PathToPls))
+            {
+                pathToPls = pre17PathToPls;
+            }
+            else
+            {
+                string errMsg = $"Path to PLS executable not found! The executable should be located in {pre17PathToPls}.\r\n{pathToPls}";
+                Logger.Error(errMsg);
+                throw new Exception(errMsg);
+            }
 
             ProcessStartInfo psi = new ProcessStartInfo();
             psi.FileName = pathToPls;
