@@ -298,7 +298,7 @@ namespace PLS_Post_Processor
 
             // *** PLS API parameters for DXF.
             string code3D = "1";            // 1 = 3D, 0 = 2D
-            string drawMode = "2";          // 0 = line, 1 = wire frame, 2 = rendered
+            string drawMode = "1";          // 0 = line, 1 = wire frame, 2 = rendered (before 5/22/23 = 2)
             string displayLabels = "1";     // 1 = on, 0 = off
             //string longitude = "20";        // longitude of view in degrees
             //string latitude = "30";         // latitude of view in degrees
@@ -310,10 +310,8 @@ namespace PLS_Post_Processor
                 sw.WriteLine(@"TYPE='PLS POSTPROC COMMAND FILE' VERSION='1' UNITS='US' SOURCE='PLS-POLE' USER='Sabre Industries, Inc.' FILENAME='c:\pls\temp\postcmd.cmd'");
                 sw.WriteLine($@"49 '{tempPolPath}'");
                 sw.WriteLine($@"42 '{plsDxfFullPath}' {code3D} {drawMode} {displayLabels} {longitude} {latitude}");
-                //sw.WriteLine($@"42 '{plsDxfFullPath}' 1 2 1 60 30");
-                //sw.WriteLine($@"42 '{stagingPath}\peIso.dxf' 1 2 0 20 30");
-                sw.WriteLine($@"42 '{plsDxfTopFullPath}' 1 2 0 0 90");
-                sw.WriteLine($@"42 '{plsDxfIsoFullPath}' 1 2 0 20 30");
+                sw.WriteLine($@"42 '{plsDxfTopFullPath}' {code3D} {drawMode} 0 0 90");
+                sw.WriteLine($@"42 '{plsDxfIsoFullPath}' {code3D} {drawMode} 0 20 30");
                 sw.WriteLine("3 ; exit");
             }
 
