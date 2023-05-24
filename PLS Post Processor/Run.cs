@@ -300,18 +300,17 @@ namespace PLS_Post_Processor
             string code3D = "1";            // 1 = 3D, 0 = 2D
             string drawMode = "1";          // 0 = line, 1 = wire frame, 2 = rendered (before 5/22/23 = 2)
             string displayLabels = "1";     // 1 = on, 0 = off
-            //string longitude = "20";        // longitude of view in degrees
-            //string latitude = "30";         // latitude of view in degrees
             string longitude = "0";        // longitude of view in degrees
             string latitude = "0";         // latitude of view in degrees
+            string annotation = "1";        // optional display of annotation: 1 = on, 0 = off (PLS 18.05+)
 
             using (StreamWriter sw = new StreamWriter(cmdFilePath, false))
             {
                 sw.WriteLine(@"TYPE='PLS POSTPROC COMMAND FILE' VERSION='1' UNITS='US' SOURCE='PLS-POLE' USER='Sabre Industries, Inc.' FILENAME='c:\pls\temp\postcmd.cmd'");
                 sw.WriteLine($@"49 '{tempPolPath}'");
-                sw.WriteLine($@"42 '{plsDxfFullPath}' {code3D} {drawMode} {displayLabels} {longitude} {latitude}");
-                sw.WriteLine($@"42 '{plsDxfTopFullPath}' {code3D} {drawMode} 0 0 90");
-                sw.WriteLine($@"42 '{plsDxfIsoFullPath}' {code3D} {drawMode} 0 20 30");
+                sw.WriteLine($@"42 '{plsDxfFullPath}' {code3D} {drawMode} {displayLabels} {longitude} {latitude} {annotation}");
+                sw.WriteLine($@"42 '{plsDxfTopFullPath}' {code3D} {drawMode} 0 0 90 {annotation}");
+                sw.WriteLine($@"42 '{plsDxfIsoFullPath}' {code3D} {drawMode} 0 20 30 {annotation}");
                 sw.WriteLine("3 ; exit");
             }
 
