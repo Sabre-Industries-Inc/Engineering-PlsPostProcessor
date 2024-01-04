@@ -7,6 +7,7 @@ using System.Drawing;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml;
@@ -42,13 +43,15 @@ namespace PLS_Post_Processor
         private static string plsDxfFrontFullPath = "";
         private static string plsDxfIsoFullPath = "";
 
-        private const int maxPlsWaitTimeMilli = 5000;  // ==> milliseconds
+        private const int maxPlsWaitTimeMilli = 7000;  // ==> milliseconds
 
         private static List<string> _plsPolDependecies = new List<string>();
 
         public static void RunApp()
         {
-            ConsoleUtility.WriteProgressBar("Begin", 0);
+            string version = Assembly.GetExecutingAssembly().GetName().Version.ToString();
+            Console.WriteLine("Version: 1.11111");
+            ConsoleUtility.WriteProgressBar($"Begin (Version: {version})", 0);
 
             string polPath = ParsePolPath();
 
@@ -347,7 +350,7 @@ namespace PLS_Post_Processor
 
             var proc = new Process { StartInfo = psi };
             proc.Start();
-            proc.WaitForExit(maxPlsWaitTimeMilli); // 10000);
+            proc.WaitForExit(); // maxPlsWaitTimeMilli); // 10000);
         }
 
         /// <summary>
@@ -380,7 +383,7 @@ namespace PLS_Post_Processor
                 Logger.Error(e, errMsg);
             }
 
-            //CleanupDxfDrawing(model);
+            CleanupDxfDrawing(model);
 
             // *** The image output file full path with defined extension.
             string outfile = Path.ChangeExtension(dxfFilePath, sFormat);
@@ -439,38 +442,54 @@ namespace PLS_Post_Processor
                 model.Layers[annoLayer].Enabled = false;
             }
 
-            //BoundsCalculator boundsCalculator = new BoundsCalculator();
-
-            foreach (var entity in model.Entities)
+            string txtLayer = "0";
+            if (model.Layers.Keys.Contains(txtLayer))
             {
-                string eType = entity.EntityType;
-                if (!eType.Equals("TEXT", StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-
-                DxfText txtEntity = entity as DxfText;
-                double txtHt = txtEntity.Height / 2.0;
-                string txt = txtEntity.Text;
-                var txtPt1 = txtEntity.AlignmentPoint1;
-                var txtPt2 = txtEntity.AlignmentPoint2;
-                var horizAlign = txtEntity.HorizontalAlignment;
-                var vertAlign = txtEntity.VerticalAlignment;
-
-                DxfText newTxt = new DxfText()
-                {
-                    Text = txt,
-                    Height = txtHt,
-                    AlignmentPoint1 = txtPt1,
-                    AlignmentPoint2 = txtPt2,
-                    HorizontalAlignment = horizAlign,
-                    VerticalAlignment = vertAlign
-                };
-                model.Entities.Add(newTxt);
-
-                // *** Make original text invisible since I can't change the size.
-                txtEntity.Visible = false;
+                model.Layers[txtLayer].Enabled = false;
             }
+
+            //BoundsCalculator boundsCalculator = new BoundsCalculator();
+            //boundsCalculator.GetBounds(model);
+            //Bounds3D bounds = boundsCalculator.Bounds;
+
+            //DxfEntityCollection newEntities = new DxfEntityCollection();
+
+            //foreach (var entity in model.Entities)
+            //{
+            //    string eType = entity.EntityType;
+            //    if (!eType.Equals("TEXT", StringComparison.OrdinalIgnoreCase))
+            //    {
+            //        continue;
+            //    }
+
+            //    DxfText txtEntity = entity as DxfText;
+            //    double txtHt = txtEntity.Height / 10.0;
+            //    string txt = txtEntity.Text;
+            //    var txtPt1 = txtEntity.AlignmentPoint1;
+            //    var txtPt2 = txtEntity.AlignmentPoint2;
+            //    var horizAlign = txtEntity.HorizontalAlignment;
+            //    var vertAlign = txtEntity.VerticalAlignment;
+
+            //    DxfText newTxt = new DxfText()
+            //    {
+            //        Text = txt,
+            //        Height = txtHt,
+            //        AlignmentPoint1 = txtPt1,
+            //        AlignmentPoint2 = txtPt2,
+            //        HorizontalAlignment = horizAlign,
+            //        VerticalAlignment = vertAlign
+            //    };
+            //    //model.Entities.Add(newTxt);
+            //    newEntities.Add(newTxt);
+
+            //    // *** Make original text invisible since I can't change the size.
+            //    txtEntity.Visible = false;
+            //}
+
+            //if (newEntities.Count > 0)
+            //{
+            //    model.Entities.AddRange(newEntities);
+            //}
 
             string dxfFullPath = model.Filename;
             DxfWriter.Write(dxfFullPath, model);
