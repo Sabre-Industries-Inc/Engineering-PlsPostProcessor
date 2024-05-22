@@ -1,5 +1,5 @@
 TYPE='Schema Customizations' VERSION='4.3' UNITS='SI' SOURCE='PLS-POLE Version 19.01' USER='Sabre Communications' FILENAME='c:\users\mrogers\appdata\roaming\pls\pls-pole.sma'
-72 48 500 459 1 0 441 209 90 0 2
+72 48 500 459 1 0 445 209 94 0 2
 CSchemaHolder
 6 'Tubular X-Arm Connectivity' 6 1 1 0 0 0 0 0
 
@@ -299,9 +299,9 @@ CSchemaHolder
 
 0 'Pole\nProperty' 'Pole\nProperty' '%9s' '%9s' '' '' '' '' '' 0
 1 'Tube\nNo.' 'Tube\nNo.' '%5d' '%5d' '' '' '' '' '' 0
-2 'Length\n\n%m' 'Length\n\n%m' '%12.6lg' '%12.6lg' '' '' '' 'Length of this tube' 'Length of this tube' 0
+2 'Length\n\n%m' 'Length\n\n%m' '%9.5lg' '%12.6lg' '' '' '' 'Length of this tube' 'Length of this tube' 0
 3 'Thickness\n\n%m' 'Thickness\n\n%m' '%10.6lg' '%12.6lg' '' '' '' 'Wall thickness of this tube' 'Wall thickness of this tube' 0
-4 'Lap\nLength\n%m' 'Lap\nLength\n%m' '%7.3lf' '%12.6lg' '' '' '' 'Enter 0 if butt welded or the actual overlap.  No overlap should be entered for the bottom tube' 'Enter 0 if butt welded or the actual overlap.  No overlap should be entered for the bottom tube' 0
+4 'Lap\nLength\n%m' 'Lap\nLength\n%m' '%7.4lf' '%12.6lg' '' '' '' 'Enter 0 if butt welded or the actual overlap.  No overlap should be entered for the bottom tube' 'Enter 0 if butt welded or the actual overlap.  No overlap should be entered for the bottom tube' 0
 5 'Lap\nFactor' 'Lap\nFactor' '%7.3lf' '%12.6lg' '' '' '' 'Enter 0 if butt welded or the overlap as a multiple of the inner diameter (typically 1.5).  No overlap should be entered for the bottom tube' 'Enter 0 if butt welded or the overlap as a multiple of the inner diameter (typically 1.5).  No overlap should be entered for the bottom tube' 0
 6 'Lap Gap or\nButt Offset\n%m' 'Lap Gap or\nButt Offset\n%m' '%12.5lf' '%12.6lg' '' '' '' 'For spliced tubes enter a tolerance for galvanizing thickness or slop here that will reduce the diameter of the inner tube (this is a radial quantity), for Butt Welded poles enter offset from inner diameter of bottom tube' 'For spliced tubes enter a tolerance for galvanizing thickness or slop here that will reduce the diameter of the inner tube (this is a radial quantity), for Butt Welded poles enter offset from inner diameter of bottom tube' 0
 7 'Yield\nStress\n%m' 'Yield\nStress\n%m' '%7.3lf' '%7.3lf' '' '' '' '' '' 0
@@ -309,8 +309,8 @@ CSchemaHolder
 9 'Tube\nWeight\n%m' 'Tube\nWeight\n%m' '%7.0lf' '%8.0lf' '' '' '' '' '' 0
 10 'Center of\nGravity\n%m' 'Center of\nGravity\n%m' '%10.2lf' '%10.2lf' '' '' '' '' '' 0
 11 'Calculated\nTaper\n%m' 'Calculated\nTaper\n%m' '%11.5lf' '%11.5lf' '' '' '' 'Tube taper.  Note: You only need to enter two of tip diameter, base diameter and taper the third will be calculated' 'Tube taper.  Note: You only need to enter two of tip diameter, base diameter and taper the third will be calculated' 0
-12 'Tube Top\nDiameter\n%m' 'Tube Top\nDiameter\n%m' '%9.5lf' '%9.2lf' '' '' '' '' '' 0
-13 'Tube Bot.\nDiameter\n%m' 'Tube Bot.\nDiameter\n%m' '%10.5lf' '%10.2lf' '' '' '' '' '' 0
+12 'Tube Top\nDiameter\n%m' 'Tube Top\nDiameter\n%m' '%10.6lf' '%9.2lf' '' '' '' '' '' 0
+13 'Tube Bot.\nDiameter\n%m' 'Tube Bot.\nDiameter\n%m' '%10.6lf' '%10.2lf' '' '' '' '' '' 0
 14 '1.5x Diam.\nLap Length\n%m' '1.5x Diam.\nLap Length\n%m' '%11.3lf' '%11.3lf' '' '' '' '' '' 0
 15 'Actual\nOverlap\n%m' 'Actual\nOverlap\n%m' '%8.3lf' '%8.3lf' '' '' '' '' '' 0
 CSchemaHolder
@@ -2359,16 +2359,16 @@ Detach Window to Monitor 2
 33333
 Detach Window to Monitor 3
 
-2228480
+2556165
 Table View
 
-2231554
+2557191
 XML Export
 
-2233091
+2557704
 Add as Annotation to Inset View
 
-2234628
+2558217
 Google Sheets Export
 
 35956
@@ -2380,11 +2380,11 @@ Import
 35968
 in Project as XYZ Points
 
-2230017
+2556678
 Goto
 
 35918
-Customize
+Customize 'Steel Tubes Properties'
 
 35999
 Export &All
@@ -2401,7 +2401,7 @@ Export &All
 33356
 Save &As...
 
-2236170
+2558735
 Save To...
 
 38367
@@ -2410,7 +2410,7 @@ Re&ference Manager...
 35990
 &Google Drive...
 
-2236427
+2558992
 Save as PDF...
 
 38018
@@ -2435,10 +2435,10 @@ Table View
 XML Export
 
 35969
-Add as Annotation to Inset View
+Add as Annotation to Inset View 'Steel Tubes Properties'
 
 33502
-Google Sheets Export
+Google Sheets Export 'Steel Tubes Properties'
 
 44001
 Goto
@@ -3827,6 +3827,18 @@ Export the table to an ODBC database.
 44006
 
 
+47001
+
+
+47002
+
+
+47003
+
+
+47004
+
+
 1 ; multiline
 789
 Licensed Design Modules
@@ -4725,6 +4737,18 @@ right-aligned number, with at least 10 characters with 4 to the right of the dec
 
 933
 right-aligned number, with at least 12 characters with 3 to the right of the decimal point, in a decimal notation
+
+933
+Type in the order you want the columns printed in (1 = first column, 2 = 2nd etc)  Enter 0 to have a column hidden
+
+933
+right-aligned number, with at least 8 characters with 4 to the right of the decimal point, in a decimal notation
+
+933
+right-aligned number, with at least 9 characters with 5 to the right of the decimal point, in a decimal notation
+
+933
+right-aligned number, with at least 10 characters with 5 to the right of the decimal point, in a decimal notation
 
 0 ; multiline
 3 'Directory Mapping For Restore166_131'

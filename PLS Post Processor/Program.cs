@@ -35,6 +35,10 @@ namespace PLS_Post_Processor
                 Thread.Sleep(50);
             }
 
+            Console.WriteLine();
+            ConsoleUtility.WriteProgress(0);
+            Console.WriteLine("ERROR:  this is an error message!!!");
+
             Console.ReadKey();
         }
     }

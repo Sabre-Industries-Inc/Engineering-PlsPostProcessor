@@ -14,8 +14,9 @@ using System.Xml;
 using WW.Cad.Drawing;
 using WW.Cad.IO;
 using WW.Cad.Model;
-using WW.Cad.Model.Entities;
 using WW.Math;
+
+using PLS_Post_Processor.Helpers;
 
 //using SixLabors.ImageSharp.PixelFormats;
 //using SixLabors.ImageSharp;
@@ -38,6 +39,8 @@ namespace PLS_Post_Processor
     {
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
+        private static decimal supportedPlsVersion = 0;
+        private static bool validPlsVersion = false;
         private static string plsDxfFullPath = "";
         private static string plsDxfTopFullPath = "";
         private static string plsDxfFrontFullPath = "";
@@ -50,10 +53,23 @@ namespace PLS_Post_Processor
         public static void RunApp()
         {
             string version = Assembly.GetExecutingAssembly().GetName().Version.ToString();
-            Console.WriteLine("Version: 1.11111");
             ConsoleUtility.WriteProgressBar($"Begin (Version: {version})", 0);
 
-            string polPath = ParsePolPath();
+            (string path, string ver) plsInfo = ParsePolPath();
+            string polPath = plsInfo.path;
+            decimal plsVersion = 0m;
+            string[] w = plsInfo.ver.Split(' ');
+            if (w.Length == 2)
+            {
+                plsVersion = decimal.Parse(w[1]);
+            }
+
+            // *** Get (SFC)Quote database PLS supported version
+            var (supportedVersion, isSupported) = DbReader.GetSupportedPlsVersion(plsVersion);
+            supportedPlsVersion = supportedVersion;
+
+            // *** Is the PLS version being used supported?
+            var plsVersionIsSupported = isSupported;
 
             string stagingPath = Globals.StagingPath;   // EG: "c:\pls\temp\stage"
             string uploadFile = Globals.UploadFile;     // EG: "c:\pls\temp\plsupload.zip"
@@ -72,6 +88,25 @@ namespace PLS_Post_Processor
             if (File.Exists(uploadFile))
             {
                 File.Delete(uploadFile);
+            }
+
+            // *** Delete the PLsUpload.zip file before checking the PLS version.
+            // ***
+            // *** Check the PLS XML version to make sure it matches the current supported PLS version.
+            // *** The check will ensure SFC and PLS process will work correctly.
+            if (!plsVersionIsSupported) // || plsVersion != supportedPlsVersion)
+            {
+                Console.WriteLine("");
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+                Console.WriteLine("!!! E R R O R                                                                   !!!");
+                Console.WriteLine($"!!! The PLS file is version {plsVersion:f2}. The currently supported PLS version is {supportedPlsVersion:f2} !!!");
+                Console.WriteLine($"!!! Please update to PLS version {Run.supportedPlsVersion:f2} to continue.                             !!!");
+                Console.WriteLine($"!!! The PlsUpload.zip will NOT be created                                       !!!");
+                Console.WriteLine($"!!! <Press any key to terminate PLS Post-Processor>                             !!!");
+                Console.WriteLine("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+                Console.ReadKey();
+                return;
             }
 
             File.Copy(polPath, tempPolPath, overwrite: true);
@@ -103,7 +138,7 @@ namespace PLS_Post_Processor
             CreateCommandFile(tempPolPath, stagingPath);
             RunCommandFile();
 
-            ConsoleUtility.WriteProgressBar("Generate PNG's", 40, update: true, wait: true);
+            ConsoleUtility.WriteProgressBar("Generate PNG images", 40, update: true, wait: true);
 
             DxfImageExporter(plsDxfFrontFullPath);
             DxfImageExporter(plsDxfTopFullPath);
@@ -125,16 +160,171 @@ namespace PLS_Post_Processor
 
             ZipFile.CreateFromDirectory(stagingPath, uploadFile);
 
-            ConsoleUtility.WriteProgressBar("Complete", 100, update: true, wait: true);
+            // *** Check to make sure the PLS-Pole Schema File is up to date.
+            ConsoleUtility.WriteProgressBar("Check PLS-Pole Schema File", 90, update: true, wait: true);
+          bool schemaFileUpdated = CheckPlsPoleSchemaFile();
+
+            if (schemaFileUpdated)
+            {
+                ConsoleUtility.WriteProgressBar("Complete ~> PLS-Pole Schema File Updated", 100, update: true, wait: true);
+            }
+            else
+            {
+                ConsoleUtility.WriteProgressBar("Complete", 100, update: true, wait: true);
+            }
 
             ConsoleUtility.Pause(Globals.ConsolePauseWhenDone);
+        }
+
+        /// <summary>
+        /// Check the PLS-Pole Schema File to make sure it is up to date.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// The PLS-Pole Schema File check will compare:
+        ///   The schema file version between the valid and user schema files.  If the user schema file
+        ///   version is less than the valid schema file versions, the valid schema file is copied to
+        ///   the users %appdata%\pls.
+        /// </para>
+        /// <para>
+        ///   Compare the records defined in the SchemaRecords list, if any of the records
+        ///   are not equal, the valid schema file is copied to the users %appdata%\pls.
+        /// </para>
+        /// </remarks>
+        private static bool CheckPlsPoleSchemaFile()
+        {
+            string rootPath = Path.GetDirectoryName(Assembly.GetEntryAssembly().Location);
+            string validSchema = "valid-pls-pole.sma";
+            string validSchemaPath = Path.Combine(rootPath, validSchema);
+
+            if (!File.Exists(validSchemaPath))
+            {
+                Console.WriteLine("");
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+                Console.WriteLine("!!! E R R O R                                                                   !!!");
+                Console.WriteLine($"!!! The Valid Schema file [{validSchemaPath}] is not defined!! !!!");
+                Console.WriteLine("!!! <Press any key to terminate PLS Post-Processor>                             !!!");
+                Console.WriteLine("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+                Console.ReadKey();
+                return false;
+            }
+
+            string schemaFileName = @"PLS\pls-pole.sma";
+            string appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            string userSchemaPath = Path.Combine(appDataPath, schemaFileName);
+
+            if (!File.Exists(userSchemaPath))
+            {
+                Console.WriteLine("");
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+                Console.WriteLine("!!! E R R O R                                                                   !!!");
+                Console.WriteLine($"!!! The User's Schema file [{schemaFileName}] could not found!! !!!");
+                Console.WriteLine($"!!! <Press any key to terminate PLS Post-Processor>                             !!!");
+                Console.WriteLine("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+                Console.ReadKey();
+                return false;
+            }
+
+            var validSchemaFile = File.ReadLines(validSchemaPath).ToList();
+            decimal validSchemaVersion = GetVersion(validSchemaFile);
+
+            var userSchemaFile = File.ReadLines(userSchemaPath).ToList();
+
+            string schemaVersionStr = string.Empty;
+            decimal userSchemaVersion = GetVersion(userSchemaFile);
+
+            if (validSchemaVersion > userSchemaVersion)
+            {
+                File.Copy(validSchemaPath, userSchemaPath, overwrite: true);
+                return true;
+            }
+
+            // *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
+            // *** Check the format definitions between the valid and user Schema file:
+            // ***  for Steel Pole Properties
+            // ***       ~ Length
+            // ***       ~ Tip
+            // ***       ~ Base
+            // ***       ~ Taper
+            // ***  For Steel Tubes Properties
+            // ***       ~ Length
+            // ***       ~ Thickness
+            // ***       ~ Lap Length
+            // ***       ~ Tube Top
+            // ***       ~ Tube Bot.
+            // *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
+            List<SchemaRecord> schemaRecords = new List<SchemaRecord>
+            {
+                new SchemaRecord{ SearchString = "Length\n", BlockString = "Steel Pole Properties"},
+                new SchemaRecord{ SearchString = "Tip\nDiameter\n", BlockString = "Steel Pole Properties"},
+                new SchemaRecord{ SearchString = "Base\nDiameter\n", BlockString = "Steel Pole Properties"},
+                new SchemaRecord{ SearchString = "Taper\n", BlockString = "Steel Pole Properties"},
+
+                new SchemaRecord{ SearchString = "Length\n", BlockString = "Steel Tubes Properties"},
+                new SchemaRecord{ SearchString = "Thickness\n", BlockString = "Steel Tubes Properties"},
+                new SchemaRecord{ SearchString = "Lap\nLength\n", BlockString = "Steel Tubes Properties" },
+                new SchemaRecord{ SearchString = "Tube Top\nDiameter\n", BlockString = "Steel Tubes Properties"},
+                new SchemaRecord{ SearchString = "Tube Bot.\nDiameter\n", BlockString = "Steel Tubes Properties" },
+            };
+
+            foreach (var record in schemaRecords)
+            {
+                record.AssignRecord(userSchemaFile, user: true);
+                record.AssignRecord(validSchemaFile, user: false);
+            }
+
+            // *** If any record is not equal, copy in the valid schema file.
+            bool copyValid = schemaRecords.Any(s => !s.IsEqual);
+
+            if (copyValid)
+            {
+                var attr = File.GetAttributes(userSchemaPath);
+
+                // *** Turn off Read-only attribute.
+                var attrRead = attr & ~FileAttributes.ReadOnly;
+                File.SetAttributes(userSchemaPath, attrRead);
+
+                File.Copy(validSchemaPath, userSchemaPath, overwrite: true);
+
+                // *** Turn Read-only attribute back on.
+                attrRead = attr | FileAttributes.ReadOnly;
+                File.SetAttributes(userSchemaPath, attrRead);
+
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Get the PLS-Pole Schema File version
+        /// </summary>
+        /// <param name="schema"></param>
+        /// <returns></returns>
+        private static decimal GetVersion(List<string> schema)
+        {
+            var header = schema[0];
+
+            // Define the regular expression pattern
+            // Find the first match
+            string pattern = @"VERSION='([\d.]+)'"; // Matches digits and decimal points within single quotes
+            Match match = Regex.Match(header, pattern);
+            string schemaVersionStr = (match.Success ? match.Groups[1].Value : string.Empty);
+            //pattern = @"SOURCE='([^']+)'"; // Matches everything between single quotes
+
+            decimal schemaVersion = 0;
+            decimal.TryParse(schemaVersionStr, out schemaVersion);
+
+            return schemaVersion;
         }
 
         /// <summary>
         /// Get the .POL path which is defined in the postproc.xml file.
         /// </summary>
         /// <returns>Returns the project path defined in PLS postproc.xml</returns>
-        private static string ParsePolPath()
+        private static (string path, string ver) ParsePolPath()
         {
             string postprocPath = Globals.PlsPostProcPath; // EG: "c:\pls\temp\postproc.xml"
 
@@ -143,8 +333,9 @@ namespace PLS_Post_Processor
 
             XmlNodeList nl = xdoc.GetElementsByTagName("creator");
             string polPath = nl[0].Attributes["projectpath"].Value;
+            string plsVersion = nl[0].Attributes["version"].Value;
 
-            return polPath;
+            return (polPath, plsVersion);
         }
 
         /// <summary>
