@@ -50,10 +50,15 @@ namespace PLS_Post_Processor
 
         private static List<string> _plsPolDependecies = new List<string>();
 
-        public static void RunApp()
+        private static bool _upgradeTest = false;
+
+        public static void RunApp(bool upgradeTest)
         {
+            _upgradeTest = upgradeTest;
+
             string version = Assembly.GetExecutingAssembly().GetName().Version.ToString();
-            ConsoleUtility.WriteProgressBar($"Begin (Version: {version})", 0);
+            string upTest = (_upgradeTest ? "[*** Upgrade Test ***]" : "");
+            ConsoleUtility.WriteProgressBar($"Begin (Version: {version}){upTest}", 0);
 
             (string path, string ver) plsInfo = ParsePolPath();
             string polPath = plsInfo.path;
@@ -69,7 +74,7 @@ namespace PLS_Post_Processor
             supportedPlsVersion = supportedVersion;
 
             // *** Is the PLS version being used supported?
-            var plsVersionIsSupported = isSupported;
+            var plsVersionIsSupported = isSupported || _upgradeTest;
 
             string stagingPath = Globals.StagingPath;   // EG: "c:\pls\temp\stage"
             string uploadFile = Globals.UploadFile;     // EG: "c:\pls\temp\plsupload.zip"
