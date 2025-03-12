@@ -17,6 +17,7 @@ using WW.Cad.Model;
 using WW.Math;
 
 using PLS_Post_Processor.Helpers;
+using WW.Cad.Model.Entities;
 
 //using SixLabors.ImageSharp.PixelFormats;
 //using SixLabors.ImageSharp;
@@ -631,12 +632,12 @@ namespace PLS_Post_Processor
         /// <param name="model"></param>
         private static void CleanupDxfDrawing(DxfModel model) //, string dxfFullPath)
         {
-            // *** Turn off the Annotation layer if it exists.
-            string annoLayer = "Annotation";
-            if (model.Layers.Keys.Contains(annoLayer))
-            {
-                model.Layers[annoLayer].Enabled = false;
-            }
+            //// *** Turn off the Annotation layer if it exists.
+            //string annoLayer = "Annotation";
+            //if (model.Layers.Keys.Contains(annoLayer))
+            //{
+            //    model.Layers[annoLayer].Enabled = false;
+            //}
 
             string txtLayer = "0";
             if (model.Layers.Keys.Contains(txtLayer))
@@ -644,11 +645,18 @@ namespace PLS_Post_Processor
                 model.Layers[txtLayer].Enabled = false;
             }
 
+            var dxfConverter = new DxfDrawingModifier(model);
+
+            //var converter = new PlsToDxfDimensionConverter(model);
+            //converter.ConvertPlsDimensionsToNativeDimensions();
+            ////converter.SaveConvertedFile(outputFilePath);
+
             //BoundsCalculator boundsCalculator = new BoundsCalculator();
             //boundsCalculator.GetBounds(model);
             //Bounds3D bounds = boundsCalculator.Bounds;
 
             //DxfEntityCollection newEntities = new DxfEntityCollection();
+            //double entityScale = 0.5;
 
             //foreach (var entity in model.Entities)
             //{
@@ -660,26 +668,28 @@ namespace PLS_Post_Processor
 
             //    DxfText txtEntity = entity as DxfText;
             //    double txtHt = txtEntity.Height / 10.0;
-            //    string txt = txtEntity.Text;
-            //    var txtPt1 = txtEntity.AlignmentPoint1;
-            //    var txtPt2 = txtEntity.AlignmentPoint2;
-            //    var horizAlign = txtEntity.HorizontalAlignment;
-            //    var vertAlign = txtEntity.VerticalAlignment;
+            //    txtEntity.Height *= entityScale;
+            //    //txtEntity.WidthFactor *= entityScale;
+            //    //string txt = txtEntity.Text;
+            //    //var txtPt1 = txtEntity.AlignmentPoint1;
+            //    //var txtPt2 = txtEntity.AlignmentPoint2;
+            //    //var horizAlign = txtEntity.HorizontalAlignment;
+            //    //var vertAlign = txtEntity.VerticalAlignment;
 
-            //    DxfText newTxt = new DxfText()
-            //    {
-            //        Text = txt,
-            //        Height = txtHt,
-            //        AlignmentPoint1 = txtPt1,
-            //        AlignmentPoint2 = txtPt2,
-            //        HorizontalAlignment = horizAlign,
-            //        VerticalAlignment = vertAlign
-            //    };
-            //    //model.Entities.Add(newTxt);
-            //    newEntities.Add(newTxt);
+            //    //DxfText newTxt = new DxfText()
+            //    //{
+            //    //    Text = txt,
+            //    //    Height = txtHt,
+            //    //    AlignmentPoint1 = txtPt1,
+            //    //    AlignmentPoint2 = txtPt2,
+            //    //    HorizontalAlignment = horizAlign,
+            //    //    VerticalAlignment = vertAlign
+            //    //};
+            //    ////model.Entities.Add(newTxt);
+            //    //newEntities.Add(newTxt);
 
-            //    // *** Make original text invisible since I can't change the size.
-            //    txtEntity.Visible = false;
+            //    //// *** Make original text invisible since I can't change the size.
+            //    //txtEntity.Visible = false;
             //}
 
             //if (newEntities.Count > 0)
@@ -688,6 +698,7 @@ namespace PLS_Post_Processor
             //}
 
             string dxfFullPath = model.Filename;
+            dxfFullPath = dxfFullPath.Replace(".dxf", "_0.dxf");
             DxfWriter.Write(dxfFullPath, model);
         }
     }

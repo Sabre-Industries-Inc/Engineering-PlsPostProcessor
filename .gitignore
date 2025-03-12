@@ -36,9 +36,9 @@ bld/
 [Ll]og/
 [Ll]ogs/
 
-### Sabre TFS Anomolies ###
-# Renamed Git repo
-MyRepo.git/
+### User specified items to ignore ###
+# Don't need archive directory
+[Aa]rchive/
 
 # SSRS Reports cache
 *.rdl.data

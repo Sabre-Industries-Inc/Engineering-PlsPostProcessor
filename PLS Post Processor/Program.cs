@@ -14,7 +14,7 @@ namespace PLS_Post_Processor
         {
             //TestConsoleUtility();
 
-            string arg0 = args[1];
+            string arg0 = args[0];
             bool upgradeTest = (arg0.Equals("~upgradeTest~", StringComparison.OrdinalIgnoreCase));
             //Console.WriteLine($"There are {args.Count()}");
 

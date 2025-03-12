@@ -124,8 +124,10 @@
     <Compile Include="Helpers\ConsoleMessages.cs" />
     <Compile Include="Helpers\ConsoleUtility.cs" />
     <Compile Include="Helpers\DbReader.cs" />
+    <Compile Include="Helpers\DxfDrawingModifier.cs" />
     <Compile Include="Helpers\EnvironmentHelper.cs" />
     <Compile Include="Helpers\MyExtensions.cs" />
+    <Compile Include="Helpers\PlsToDxfDimensionConverter.cs" />
     <Compile Include="Helpers\SchemaRecord.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
