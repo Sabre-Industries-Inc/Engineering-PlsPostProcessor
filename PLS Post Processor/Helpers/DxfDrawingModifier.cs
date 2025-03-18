@@ -20,11 +20,10 @@ using System.Configuration;
 using WW.Cad.Drawing.Surface;
 using static PLS_Post_Processor.Helpers.DxfDrawingModifier;
 using NLog.LayoutRenderers;
-
+using System.Numerics;
 
 namespace PLS_Post_Processor.Helpers
 {
-
     /// <summary>
     /// DxfDrawingModifier is a comprehensive C# class DxfDrawingModifier to modify
     /// a DXF drawing to replace PLS dimensions and PLS Text with DXF Dimensions and DXF Text.
@@ -55,168 +54,32 @@ namespace PLS_Post_Processor.Helpers
     /// </summary>
     public class DxfDrawingModifier
     {
-        //private DxfDocument _document;
         private readonly DxfModel _dxfModel;
-        private readonly DxfLayer _dxfLayer;
+
+        /// <summary>
+        /// Font reduction factor.  Used to reduce the size of the font
+        /// by dividing by the factor.
+        /// A factor of 2.0 will reduce the font size by half.
+        /// </summary>
+        private readonly double _fontReduce = 2.0;
 
         private readonly List<PlsDimension> _plsDimensions = new List<PlsDimension>();
-        private List<DxfEntity> _annotationEntities;
         private List<DxfText> _orphanedText = new List<DxfText>();
+        private List<DxfLine> _orphanedLine = new List<DxfLine>();
 
-        private readonly string annotationLayer = "Annotation";
+        private readonly string _annotationLayer = "Annotation";
+        private List<DxfEntity> _annotationEntities;
 
-        // Nested class to represent a PLS Dimension
-        public class PlsDimension
-        {
-            public DxfLine DimensionLine { get; set; }
-            public DxfText DimensionText { get; set; }
-            public List<Dxf3DFace> ArrowHeads { get; set; }
+        private readonly string _layerOne = "1";
+        private List<DxfText> _plsLabels = new List<DxfText>();
+        private List<DxfText> _plsNewLabels = new List<DxfText>();
 
-            public double ArrowHeadHt {
-                get
-                {
-                    double ht = 0;
-                    if (ArrowHeads.Count > 0)
-                    {
-                        var pts = ArrowHeads[0].Points;
-                        ht = Math.Abs(pts[0].Y - pts[1].Y);
-                    }
-
-                    return ht;
-                }
-            }
-
-            /// <summary>
-            /// Checks if the dimension line length is close to the text value
-            /// </summary>
-            /// <param name="tolerance">Allowed difference between line length and text value (default: 1.0)</param>
-            /// <returns>True if the dimension line length is within tolerance of the text value</returns>
-            private bool IsLengthCloseToTextValue(double tolerance = 1.0)
-            {
-                // Calculate the length of the dimension line
-                double lineLength = CalculateDistance(DimensionLine.Start, DimensionLine.End);
-
-                // Try to parse the text value
-                var txt = DimensionText.Text;
-                if (double.TryParse(txt, out double numericValue))
-                {
-                    // Check if the line length is close to the numeric value
-                    return Math.Abs(lineLength - numericValue) <= tolerance;
-                }
-
-                // If text value is not numeric, return false
-                return false;
-            }
-
-            /// <summary>
-            /// Calculates the Euclidean distance between two 3D points
-            /// </summary>
-            private static double CalculateDistance(Point3D point1, Point3D point2)
-            {
-                double dx = point2.X - point1.X;
-                double dy = point2.Y - point1.Y;
-                double dz = point2.Z - point1.Z;
-
-                return Math.Sqrt((dx * dx) + (dy * dy) + (dz * dz));
-            }
-
-            /// <summary>
-            /// Is a valid PLS Dimension line: DxfLine, DxfText, & Dxf3DFace?
-            ///
-            /// Dimensions with only 1 arrow head are invalid
-            /// Dimension where the dimension text is not within the tolerance of 1.0 is invalid
-            /// </summary>
-            public bool IsValid {
-                get
-                {
-                    return DimensionLine != null &&
-                           DimensionText != null &&
-                           ArrowHeads?.Count > 1 &&
-                           ArrowHeadHt > 0 &&
-                           IsLengthCloseToTextValue();
-                }
-            }
-
-            ///// <summary>
-            ///// Is a valid PLS Dimension line: DxfLine, DxfText, & Dxf3DFace?
-            /////
-            ///// Dimensions with only 1 arrow head are invalid
-            ///// </summary>
-            ///// <returns></returns>
-            //public bool IsValid()
-            //{
-            //    return DimensionLine != null &&
-            //           DimensionText != null &&
-            //           ArrowHeads?.Count > 1 &&
-            //           ArrowHeadHt > 0 &&
-            //           IsLengthCloseToTextValue();
-            //}
-
-
-            public override string ToString()
-            {
-                var test = DimensionText.AlignmentPoint1.ToString();
-                string msg = $"'{DimensionText.Text}' @ ({DimensionText.AlignmentPoint1.X:f2}, " +
-                              $"{DimensionText.AlignmentPoint1.Y:f2}, {DimensionText.AlignmentPoint1.Z:f2})" +
-                              $" Arrow Ht: {ArrowHeadHt:f3}";
-
-                return msg;
-            }
-        }
+        private readonly Dictionary<string, (Point3D tip, Point3D butt)> _poleOrigin = new Dictionary<string, (Point3D tip, Point3D butt)>();
 
         public DxfDrawingModifier(DxfModel model)
         {
             _dxfModel = model;
-            //_document = document ?? throw new ArgumentNullException(nameof(document));
-
-            IdentifyPlsDimensions();
-
-            foreach (var dimension in _plsDimensions)
-            {
-                ReplacePlsDimension(dimension);
-            }
-
-            FindAllOrphanText();
-
-            ReplaceOrphanedText();
-
-            // *** Remove all annotation entities
-            foreach (var entity in _annotationEntities)
-            {
-                // Remove old PLS dimension entities
-                _dxfModel.Entities.Remove(entity);
-            }
-        }
-
-        private void FindAllOrphanText()
-        {
-            foreach (var entity in _annotationEntities)
-            {
-                if (entity is DxfText dxfText)
-                {
-                    bool found = false;
-                    foreach (var dim in _plsDimensions)
-                    {
-                        if (dim.DimensionText.Text.Equals(dxfText.Text) && dim.IsValid)
-                        {
-                            found = true;
-                            break;
-                        }
-                    }
-
-                    if (!found)
-                    {
-                        _orphanedText.Add(dxfText);
-                    }
-                }
-            }
-        }
-
-        // 1a. Identify PLS Dimensions
-        public List<PlsDimension> IdentifyPlsDimensions()
-        {
             // Get all entities from the document
-            //List<DxfEntity> allEntities = _dxfDoc.GetEntities();
             List<DxfEntity> allEntities = _dxfModel.Entities.ToList();
 
             // Group entities by layer to help identify related dimension components
@@ -225,8 +88,101 @@ namespace PLS_Post_Processor.Helpers
                                                                         group => group.ToList());   // List of entities as value
 
             // Get 'Annotation' layer entities.
-            _annotationEntities = entitiesByLayer[annotationLayer];
+            _annotationEntities = entitiesByLayer[_annotationLayer];
 
+            // *** Find all PLS labels on _layerOne = '1'
+            _plsLabels = entitiesByLayer[_layerOne].OfType<DxfText>().ToList();
+
+            // !!! Try to calculate the text scale for the DXF drawing.
+            // !!! Currently (3/18/25) not working
+            //var textScale1 = DetermineTextScale();
+            //var textScale2 = DetermineScaleFromExistingText();
+            //_fontReduce = 1 / textScale2;
+
+            // *** Find the approximate coordinate of the pole Tip and Butt.
+            FindPoleTipButt();
+
+            //ReplaceAllPlsLabels();
+            ReplaceDxfText(_plsLabels, savePlsLabels: true);
+
+            // *** Find overlapping text entities
+            TextOverlapDetector textOverlapDetector = new TextOverlapDetector(_dxfModel, _plsNewLabels, _poleOrigin.Keys.ToList());
+            textOverlapDetector.ProcessOverlappingText();
+
+            // *** Identify all PLS Dimensions on the Annotation layer
+            IdentifyPlsDimensions();
+
+            ReplacePlsDimension();
+
+            // *** Find all orphaned text (not associated with Pls Dimension)
+            FindAllOrphanText();
+
+            ReplaceDxfText(_orphanedText);
+
+            // *** Find Ground Line (orphaned line - not associated with Pls Dimension)
+            FindAllOrphanLines();
+
+            ReplaceOrphanedLine();
+
+            // *** Remove all annotation entities
+            RemoveAllOriginalEntities(_annotationEntities);
+
+            RemoveAllOriginalEntities(_plsLabels.Cast<DxfEntity>().ToList());
+        }
+
+        private void RemoveAllOriginalEntities(List<DxfEntity> entities)
+        {
+            foreach (var entity in entities)
+            {
+                // Remove old PLS dimension & PLS Labels entities
+                _dxfModel.Entities.Remove(entity);
+            }
+        }
+
+        /// <summary>
+        /// Find the approximate coordinates for the Pole Tip and Butt
+        /// for all poles defined by [pole label]:g.
+        /// </summary>
+        private void FindPoleTipButt()
+        {
+            if (_plsLabels.Count == 0)
+            {
+                return;
+            }
+
+            var gPoleAll = _plsLabels.Where(p => p.Text.EndsWith(":g", StringComparison.OrdinalIgnoreCase)).ToList();
+            foreach (var gPole in gPoleAll)
+            {
+                Point3D approxPoleButt = ComputePointFromDxfText(gPole, poleTip: false);
+                var poleLabel = gPole.Text.GetPoleLabel();
+
+                DxfText tPole = _plsLabels.Where(p => p.Text.EndsWith($"{poleLabel}:t", StringComparison.OrdinalIgnoreCase)).FirstOrDefault();
+                Point3D approxPoleTip = ComputePointFromDxfText(tPole, poleTip: true);
+
+                _poleOrigin.Add(poleLabel, (approxPoleTip, approxPoleButt));
+            }
+        }
+
+        /// <summary>
+        /// Compute the approximate center point of the DxfText.
+        /// </summary>
+        /// <param name="dxfText"></param>
+        /// <param name="poleTip"></param>
+        /// <returns></returns>
+        private Point3D ComputePointFromDxfText(DxfText dxfText, bool poleTip = false)
+        {
+            var txtHt = dxfText.Height;
+            var avgX = (dxfText.AlignmentPoint1.X + dxfText.AlignmentPoint2.Value.X) / 2;
+            var dist = (poleTip ? -txtHt : txtHt);
+
+            var newY = dxfText.AlignmentPoint1.Y + dist;
+
+            return new Point3D(avgX, newY, dxfText.AlignmentPoint1.Z);
+        }
+
+        // 1a. Identify PLS Dimensions
+        public List<PlsDimension> IdentifyPlsDimensions()
+        {
             // Get lines, text entities, and 3D faces separately
             var lines = _annotationEntities.OfType<DxfLine>().ToList();
             var textEntities = _annotationEntities.OfType<DxfText>().ToList();
@@ -257,47 +213,7 @@ namespace PLS_Post_Processor.Helpers
                 }
             }
 
-            // *** Remove duplicate PLS Dimension:
-            // ***  Where Text & line coordinates are identical
-            //RemoveDuplicatePlsDimensions();
-
-
-            //// Iterate through all entities
-            //for (int i = 0; i < _dxfModel.Entities.Count; i++)
-            //{
-            //    var potentialDimensionLine = _dxfModel.Entities[i] as DxfLine;
-            //    if (potentialDimensionLine == null) continue;
-
-            //    // Check if line is vertical or horizontal
-            //    bool isVertical = Math.Abs(potentialDimensionLine.Start.X - potentialDimensionLine.End.X) < _dimProximity;
-            //    bool isHorizontal = Math.Abs(potentialDimensionLine.Start.Y - potentialDimensionLine.End.Y) < _dimProximity;
-
-            //    if (!isVertical && !isHorizontal) continue;
-
-            //    // Find associated text and 3DFaces
-            //    var associatedText = FindAssociatedText(potentialDimensionLine);
-            //    var associatedArrowHeads = FindAssociatedArrowHeads(potentialDimensionLine);
-
-            //    if (associatedText != null && associatedArrowHeads.Any())
-            //    {
-            //        plsDimensions.Add(new PlsDimension
-            //        {
-            //            DimensionLine = potentialDimensionLine,
-            //            DimensionText = associatedText,
-            //            ArrowHeads = associatedArrowHeads
-            //        });
-            //    }
-            //}
-
             return _plsDimensions;
-        }
-
-        private void RemoveDuplicatePlsDimensions()
-        {
-            var distinctDimensions = _plsDimensions
-                .GroupBy(d => new { d.DimensionText, d.DimensionLine.Start.X, d.DimensionLine.Start.Y, d.DimensionLine.Start.Z })
-                .Select(g => g.First())
-                .ToList();
         }
 
         // Helper method to find associated text
@@ -313,24 +229,28 @@ namespace PLS_Post_Processor.Helpers
             return txtEntities
                 .OfType<DxfText>()
                 .FirstOrDefault(text =>
-                    IsPointNearText(midPoint, lineIsVertical, text)); // &&
-                    //IsTextOrientationAligned(dimensionLine, text));
+                    IsPointNearText(midPoint, lineIsVertical, text));
         }
 
         /// <summary>
         /// Checks if a point is between two other points within a specified tolerance
         ///
-        /// This method IsPointBetween uses the "sum of distances" approach:
+        /// IsPointBetween uses the "sum of distances" approach:
         ///     *) If a point is between two endpoints, then the sum of the distances from that point to each
-        ///     endpoint should equal the distance between the endpoints.
+        ///        endpoint should equal the distance between the endpoints.
         ///     *) This works within a specified tolerance(default 0.01) to account for floating-point precision
+        ///
+        /// The exception is when a DxfText entity contains 'xx.xx Embedment' where xx.xx is the embedment value,
+        /// which must be identified as a valid PLS Dimension.
+        /// If the DxfText entity contains 'Embedment' and is close to the X-Axis, it is not an embedded pole
+        /// and is therefore an invalid PLS Dimension.
         /// </summary>
         /// <returns>True if pt1 is between txt1 and txt2 within the tolerance</returns>
         public bool IsPointNearText(DxfPoint point, bool lineIsVertical, DxfText text, double tolerance = 1.0)
         {
             var pt1 = point.Position;
             var txt1 = text.AlignmentPoint1;
-            var txt2 = (text.AlignmentPoint2.HasValue ? text.AlignmentPoint2.Value : new Point3D());
+            var txt2 = (text.AlignmentPoint2 ?? new Point3D());
 
             // Calculate the full distance between the two endpoints
             double fullDistance = CalculateDistance(txt1, txt2);
@@ -342,55 +262,35 @@ namespace PLS_Post_Processor.Helpers
             // Sum of distances from point to each endpoint
             double sumOfDistances = distToTxt1 + distToTxt2;
 
+            // ** Find Embedment label using distToTxt2
+            var txtTol = tolerance + (text.Height / 2.0);
+
             // If pt1 is between txt1 and txt2, the sum of distances should be
             // approximately equal to the full distance between txt1 and txt2
-            return Math.Abs(sumOfDistances - fullDistance) <= tolerance;
+            return (Math.Abs(sumOfDistances - fullDistance) <= tolerance) ||
+                    (distToTxt2 < txtTol && text.Text.EndsWith("Embedment", StringComparison.OrdinalIgnoreCase));
         }
 
-        //// Helper method to check if a point is near text
-        //private bool IsPointNearText(DxfPoint point, bool lineIsVertical, DxfText text, double tolerance = 1.0)
-        //{
-        //    // Implement proximity check logic
-        //    //double distance = Math.Sqrt(
-        //    //    Math.Pow(point.Position.X - text.AlignmentPoint1.X, 2) +
-        //    //    Math.Pow(point.Position.Y - text.AlignmentPoint1.Y, 2)
-        //    //);
-
-        //    var proximity = tolerance / 2.0;
-
-        //    if (lineIsVertical)
-        //    {
-        //        return (Math.Abs(point.Position.Y - text.AlignmentPoint1.Y) <= proximity);
-        //    }
-        //    else
-        //    {
-        //        return (Math.Abs(point.Position.X - text.AlignmentPoint1.X) <= proximity);
-        //    }
-        //    //return distance <= tolerance;
-        //}
-
-        //// Helper method to check text orientation
-        //private bool IsTextOrientationAligned(DxfLine dimensionLine, DxfText text)
-        //{
-        //    // Implement text orientation alignment check
-        //    // Consider text rotation and dimension line direction
-        //    return true; // Placeholder
-        //}
-
-        // Helper method to find associated arrow heads
+        /// <summary>
+        /// Helper method to find associated arrow heads
+        /// </summary>
+        /// <param name="dimensionLine"></param>
+        /// <param name="faceEntites"></param>
+        /// <returns></returns>
         private List<Dxf3DFace> FindAssociatedArrowHeads(DxfLine dimensionLine, List<Dxf3DFace> faceEntites) // List<DxfEntity> annotationEntities)
         {
             return faceEntites
                 .OfType<Dxf3DFace>()
                 .Where(face => IsArrowHeadNearLine(face, dimensionLine))
                 .ToList();
-            //return _dxfModel.Entities
-            //    .OfType<Dxf3DFace>()
-            //    .Where(face => IsArrowHeadNearLine(face, dimensionLine))
-            //    .ToList();
         }
 
-        // Helper method to check if arrow head is near dimension line
+        /// <summary>
+        /// Helper method to check if arrow head is near dimension line
+        /// </summary>
+        /// <param name="arrowHead"></param>
+        /// <param name="dimensionLine"></param>
+        /// <returns></returns>
         private bool IsArrowHeadNearLine(Dxf3DFace arrowHead, DxfLine dimensionLine)
         {
             // Implement proximity and direction check logic
@@ -422,93 +322,148 @@ namespace PLS_Post_Processor.Helpers
         /// <remarks>
         /// Ignore PLS Dimension with only one arrow.
         /// </remarks>
-        /// <param name="plsDimension"></param>
-        public void ReplacePlsDimension(PlsDimension plsDimension)
+        public void ReplacePlsDimension()
         {
-            if (!plsDimension.IsValid) return;
-            //if (!plsDimension.IsValid()) return;
-
-            var arrowHeadHt = (plsDimension.ArrowHeadHt == 0 ? 3 : plsDimension.ArrowHeadHt);
-
-            var startPt = plsDimension.DimensionLine.Start;
-            var endPt = plsDimension.DimensionLine.End;
-            var midPt = new Point3D((startPt.X + endPt.X) / 2,
-                                    (startPt.Y + endPt.Y) / 2,
-                                    plsDimension.DimensionLine.Start.Z
-            );
-
-
-            // !!! 3/11/25: Dimensions looking much better.  Need to find the right angle for the dimension text
-            // !!!          Need to resolve the GL and Angle which are not associated with a PLS Dimension.
-
-            // Create a concrete dimension entity
-            // This is a generic approach - you may need to adjust based on exact CadLib4.0 dimension types
-            var newDimension = new Aligned(_dxfModel.CurrentDimensionStyle)
+            foreach (var plsDimension in _plsDimensions)
             {
-                Layer = plsDimension.DimensionLine.Layer,
-                Color = EntityColor.CreateFromRgb(255, 255, 0), // Yellow // plsDimension.DimensionLine.Color,
+                if (!plsDimension.IsValid) continue;
 
-                // Set dimension points
-                ExtensionLine1StartPoint = plsDimension.DimensionLine.Start,
-                ExtensionLine2StartPoint = plsDimension.DimensionLine.End,
+                var arrowHeadHt = (plsDimension.ArrowHeadHt == 0 ? 3 : plsDimension.ArrowHeadHt);
 
-                // DimensionLineLocation determines the position of the dimension line
-                //  *) This point specifies how far away from the object the dimension line will be placed
-                //  *) It's typically a point offset from the measured object that establishes both:
-                //      -) The distance of the dimension line from the object
-                //      -) The side of the object where the dimension appears
-                DimensionLineLocation = midPt,
+                var startPt = plsDimension.DimensionLine.Start;
+                var endPt = plsDimension.DimensionLine.End;
+                var midPt = new Point3D((startPt.X + endPt.X) / 2,
+                                        (startPt.Y + endPt.Y) / 2,
+                                        plsDimension.DimensionLine.Start.Z
+                );
 
-                //// Specifies how the dimension text is positioned relative to the dimension line
-                //AttachmentPoint = AttachmentPoint.MiddleCenter,
+                // Create a concrete dimension entity
+                // This is a generic approach - you may need to adjust based on exact CadLib4.0 dimension types
+                var newDimension = new Aligned(_dxfModel.CurrentDimensionStyle)
+                {
+                    Layer = plsDimension.DimensionLine.Layer,
+                    Color = EntityColor.CreateFromRgb(255, 255, 0), // Yellow // plsDimension.DimensionLine.Color,
 
-                //// The actual point where the dimension text is placed
-                //InsertionPoint = midPt,
+                    // Set dimension points
+                    ExtensionLine1StartPoint = plsDimension.DimensionLine.Start,
+                    ExtensionLine2StartPoint = plsDimension.DimensionLine.End,
 
-                //// Set measurement point (typically midpoint)
-                //TextMiddlePoint = midPt,
+                    // DimensionLineLocation determines the position of the dimension line
+                    //  *) This point specifies how far away from the object the dimension line will be placed
+                    //  *) It's typically a point offset from the measured object that establishes both:
+                    //      -) The distance of the dimension line from the object
+                    //      -) The side of the object where the dimension appears
+                    DimensionLineLocation = midPt,
 
-                // Set text rotation for vertical and horizontal dimensions
-                TextRotation = -Math.PI,    //  Using 1 displayed the text at 303 deg ?!?!?
+                    //// Specifies how the dimension text is positioned relative to the dimension line
+                    //AttachmentPoint = AttachmentPoint.MiddleCenter,
 
-                // Set text content (if needed)
-                Text = plsDimension.DimensionText.Text
-            };
+                    //// The actual point where the dimension text is placed
+                    //InsertionPoint = midPt,
 
-            newDimension.DimensionStyleOverrides.TextStyle = _dxfModel.TextStyles["PLS_Graphics"];
-            newDimension.DimensionStyleOverrides.TextHeight = plsDimension.DimensionText.Height / 2.0;
-            newDimension.DimensionStyleOverrides.ArrowSize = arrowHeadHt / 2.0;
-            //newDimension.DimensionStyleOverrides.OverrideTextInsideExtensions = true;
-            newDimension.DimensionStyle.TextInsideExtensions = true;
+                    //// Set measurement point (typically midpoint)
+                    //TextMiddlePoint = midPt,
 
-            newDimension.DimensionStyleOverrides.SuppressFirstExtensionLine = true;
-            newDimension.DimensionStyleOverrides.SuppressSecondExtensionLine = true;
+                    // Set text rotation for vertical and horizontal dimensions
+                    TextRotation = -Math.PI,    //  Using 1 displayed the text at 303 deg ?!?!?
 
-            // Add text to the generated Block in the DxfDimension.
-            //newDimension.GenerateBlock();
-            //newDimension.Block.E
+                    // Set text content (if needed)
+                    Text = plsDimension.DimensionText.Text
+                };
 
-            //// Remove old PLS dimension entities
-            //_dxfModel.Entities.Remove(plsDimension.DimensionLine);
-            //_dxfModel.Entities.Remove(plsDimension.DimensionText);
-            //plsDimension.ArrowHeads.ForEach(head => _dxfModel.Entities.Remove(head));
+                newDimension.DimensionStyleOverrides.TextStyle = _dxfModel.TextStyles["PLS_Graphics"];
+                newDimension.DimensionStyleOverrides.TextHeight = plsDimension.DimensionText.Height / _fontReduce;
+                newDimension.DimensionStyleOverrides.ArrowSize = arrowHeadHt / _fontReduce;
+                //newDimension.DimensionStyleOverrides.OverrideTextInsideExtensions = true;
+                newDimension.DimensionStyle.TextInsideExtensions = true;
+                newDimension.DimensionStyle.TextVerticalAlignment = DimensionTextVerticalAlignment.Centered;
 
-            // Add new dimension to the document
-            _dxfModel.Entities.Add(newDimension);
+                newDimension.DimensionStyleOverrides.SuppressFirstExtensionLine = true;
+                newDimension.DimensionStyleOverrides.SuppressSecondExtensionLine = true;
 
-            // *** Regenerate the dimension block
-            newDimension.GenerateBlock();
+                // Add new dimension to the document
+                _dxfModel.Entities.Add(newDimension);
+
+                // *** Regenerate the dimension block
+                newDimension.GenerateBlock();
+            }
         }
 
-        public void ReplaceOrphanedText()
+        /// <summary>
+        /// Find all DxfText NOT associated with a PLS Dimension.
+        /// Such as GL, CL, 0, 180 etc.
+        /// </summary>
+        private void FindAllOrphanText()
         {
-            foreach (var dxfText in _orphanedText)
+            foreach (var entity in _annotationEntities)
             {
-                var txtHt = dxfText.Height / 2.0;
-                var align1 = dxfText.AlignmentPoint1;
-                var align2 = dxfText.AlignmentPoint2;
+                if (entity is DxfText dxfText)
+                {
+                    bool found = false;
+                    foreach (var dim in _plsDimensions)
+                    {
+                        if (dim.DimensionText.Text.Equals(dxfText.Text) && dim.IsValid)
+                        {
+                            found = true;
+                            break;
+                        }
+                    }
 
-                DxfText newText = new DxfText(dxfText);
+                    if (!found && !IsEmbeddedPole(dxfText))
+                    {
+                        _orphanedText.Add(dxfText);
+                    }
+                }
+            }
+        }
+
+        public void ReplaceDxfText(List<DxfText> textList, bool savePlsLabels = false)
+        {
+            foreach (var dxfText in textList)
+            {
+                var txtHt = dxfText.Height / _fontReduce;
+                //var halfHt = txtHt / 2.0;
+                var align1 = dxfText.AlignmentPoint1;
+                var al2 = dxfText.AlignmentPoint2;
+                Point3D align2 = new Point3D();
+
+                //double htFactor = (dxfText.Text.EndsWith(":t", StringComparison.OrdinalIgnoreCase) ? 2.2 : 1);
+                double htFactor = (dxfText.Text.EndsWith(":t") ? 2.1 : 1);
+
+                // *** Add a margin to the text if it is the tip or ground text
+                double marginFactor = 0.25;
+                double margin = 0.0;
+                if (dxfText.Text.Length >= 2)
+                {
+                    string lastTwoChars = dxfText.Text.Substring(dxfText.Text.Length - 2);
+
+                    switch (lastTwoChars)
+                    {
+                        case ":t":
+                            margin = txtHt * marginFactor;
+                            break;
+                        case ":g":
+                        case ":f":
+                            margin = -txtHt * marginFactor;
+                            break;
+                    }
+                }
+
+                if (al2.HasValue)
+                {
+                    align2 = new Point3D(al2.Value.X, al2.Value.Y, al2.Value.Z);
+
+                    if (align1.Y == align2.Y)     // horizontal text
+                    {
+                        align1.X += txtHt;
+                        align2.X += txtHt;
+                        align1.Y += (txtHt * htFactor) + margin;
+                        align2.Y += (txtHt * htFactor) + margin;
+                    }
+                }
+
+                DxfText newText = new DxfText();
+                newText.Style = _dxfModel.TextStyles["PLS_Graphics"];
                 newText.Layer = dxfText.Layer;
                 newText.Color = EntityColor.CreateFromRgb(255, 255, 0);
                 newText.AlignmentPoint1 = align1;
@@ -516,66 +471,106 @@ namespace PLS_Post_Processor.Helpers
                 newText.Text = dxfText.Text;
                 newText.Height = txtHt;
 
+                if (savePlsLabels)
+                {
+                    _plsNewLabels.Add(newText);
+                }
+
                 _dxfModel.Entities.Add(newText);
             }
         }
 
-        // 2a. Identify Overlapping PLS Text
-        public List<DxfText> IdentifyOverlappingText()
+        /// <summary>
+        /// Is this text entity close to the ground line, if so the pole is not embedded.
+        /// </summary>
+        /// <param name="dxfText"></param>
+        /// <returns>True = 'Embedment' is close to X-Axis</returns>
+        private bool IsEmbeddedPole(DxfText dxfText)
         {
-            var texts = _dxfModel.Entities.OfType<DxfText>().ToList();
-            var overlappingTexts = new List<DxfText>();
+            return dxfText.Text.Trim().Equals("Embedment", StringComparison.OrdinalIgnoreCase) &&
+                    IsPointNearGroundLine(dxfText);
+        }
 
-            for (int i = 0; i < texts.Count; i++)
+        private bool IsPointNearGroundLine(DxfText dxfText)
+        {
+            if (!dxfText.AlignmentPoint2.HasValue)
             {
-                for (int j = i + 1; j < texts.Count; j++)
+                return false;
+            }
+
+            var txtHt = dxfText.BoxHeight / _fontReduce;
+            var al2 = dxfText.AlignmentPoint2.Value;
+            var avgY = (dxfText.AlignmentPoint1.Y + al2.Y) / 2.0;
+
+            return avgY <= txtHt && avgY >= -txtHt;
+        }
+
+        private void FindAllOrphanLines()
+        {
+            foreach (var entity in _annotationEntities)
+            {
+                if (entity is DxfLine dxfLine)
                 {
-                    if (AreTextsOverlapping(texts[i], texts[j]))
+                    bool found = false;
+                    foreach (var dim in _plsDimensions)
                     {
-                        overlappingTexts.Add(texts[i]);
-                        overlappingTexts.Add(texts[j]);
+                        if (dim.DimensionLine.Start == dxfLine.Start && dim.DimensionLine.End == dxfLine.End)
+                        {
+                            found = true;
+                            break;
+                        }
+                    }
+
+                    // *** Only save the ground line
+                    var groundLine = IsGroundLine(dxfLine);
+                    if (!found && IsGroundLine(dxfLine))
+                    {
+                        _orphanedLine.Add(dxfLine);
                     }
                 }
             }
-
-            return overlappingTexts.Distinct().ToList();
         }
 
-        // Helper method to check text overlap
-        private bool AreTextsOverlapping(DxfText text1, DxfText text2)
+        /// <summary>
+        /// Replace the orphaned lines with new lines
+        /// </summary>
+        public void ReplaceOrphanedLine()
         {
-            // Implement overlap detection logic
-            // Consider text bounding boxes, XY plane projection
-            return false; // Placeholder
-        }
-
-        // 2c. Adjust Text Height and Position
-        public void ModifyPlsText(DxfText originalText)
-        {
-            // Create new text with adjusted height and position
-            var newText = new DxfText
+            foreach (var dxfLine in _orphanedLine)
             {
-                AlignmentPoint1 = originalText.AlignmentPoint1,
-                AlignmentPoint2 = originalText.AlignmentPoint2,
-                Height = 0.5 * originalText.Height,
-                Text = originalText.Text,
-                //InsertPoint = AdjustTextPosition(originalText)
-            };
+                DxfLine newLine = new DxfLine();
+                newLine.Layer = dxfLine.Layer;
+                newLine.Color = EntityColor.CreateFromRgb(255, 255, 0);
+                newLine.Start = new Point3D(dxfLine.Start);
+                newLine.End = new Point3D(dxfLine.End);
 
-            // Replace original text
-            _dxfModel.Entities.Remove(originalText);
-            _dxfModel.Entities.Add(newText);
+                _dxfModel.Entities.Add(newLine);
+            }
         }
 
-        //// Helper method to adjust text position
-        //private DxfPoint AdjustTextPosition(DxfText originalText)
-        //{
-        //    // Implement logic to adjust text position
-        //    // Consider overlapping texts, drawing layout
-        //    return originalText.AlignmentPoint1
-        //    //return originalText.InsertPoint;
-        //}
+        /// <summary>
+        /// Is this the ground line?
+        /// </summary>
+        /// <param name="dxfLine"></param>
+        /// <returns>True = it is the ground line</returns>
+        private bool IsGroundLine(DxfLine dxfLine)
+        {
+            double xTol = 0.05;
+            var deltaX = Math.Abs(dxfLine.Start.X + dxfLine.End.X);
+            var stY = dxfLine.Start.Y;
+            var stZ = dxfLine.Start.Z;
+            var edY = dxfLine.End.Y;
+            var edZ = dxfLine.End.Z;
 
+            return (stY == 0.0 && stZ == 0.0 && edY == 0.0 && edZ == 0.0 && deltaX < xTol);
+        }
+
+        /// <summary>
+        /// Caculate the distance between two 3D points
+        /// </summary>
+        /// <param name="point1"></param>
+        /// <param name="point2"></param>
+        /// <returns></returns>
         private double CalculateDistance(Point3D point1, Point3D point2)
         {
             return Math.Sqrt(
@@ -585,5 +580,177 @@ namespace PLS_Post_Processor.Helpers
             );
         }
 
+
+
+        /// <summary>
+        ///
+
+        /// </summary>
+        ///
+        public double DetermineTextScale()
+        {
+            // Calculate the bounds by iterating through all entities
+            double minX = double.MaxValue;
+            double minY = double.MaxValue;
+            double maxX = double.MinValue;
+            double maxY = double.MinValue;
+
+            // Check all entity types that have geometric properties
+            // Text entities
+            foreach (var entity in _dxfModel.Entities)
+            {
+                if (entity is DxfText dxfText)
+                {
+                    minX = Math.Min(minX, dxfText.AlignmentPoint1.X);
+                    minY = Math.Min(minY, dxfText.AlignmentPoint1.Y);
+                    maxX = Math.Max(maxX, dxfText.AlignmentPoint2.Value.X);
+                    maxY = Math.Max(maxY, dxfText.AlignmentPoint2.Value.Y);
+                }
+                else if(entity is DxfLine dxfLine)
+                {
+                    minX = Math.Min(minX, Math.Min(dxfLine.Start.X, dxfLine.End.X));
+                    minY = Math.Min(minY, Math.Min(dxfLine.Start.Y, dxfLine.End.Y));
+                    maxX = Math.Max(maxX, Math.Max(dxfLine.Start.X, dxfLine.End.X));
+                    maxY = Math.Max(maxY, Math.Max(dxfLine.Start.Y, dxfLine.End.Y));
+                }
+                else if (entity is DxfCircle dxfCircle)
+                {
+                    minX = Math.Min(minX, dxfCircle.Center.X - dxfCircle.Radius);
+                    minY = Math.Min(minY, dxfCircle.Center.Y - dxfCircle.Radius);
+                    maxX = Math.Max(maxX, dxfCircle.Center.X + dxfCircle.Radius);
+                    maxY = Math.Max(maxY, dxfCircle.Center.Y + dxfCircle.Radius);
+                }
+            }
+
+            // Calculate drawing dimensions
+            double drawingWidth = maxX - minX;
+            double drawingHeight = maxY - minY;
+
+            // If we couldn't determine bounds, return a default scale
+            if (drawingWidth <= 0 || drawingHeight <= 0)
+            {
+                return 1.0;
+            }
+
+            // For linetype scale, try to access it directly from the header if available
+            double modelSpaceScale = 1.0;
+            try
+            {
+                // Attempt to access LTSCALE directly from the header object
+                // The exact property name may vary depending on the CadLib version
+                if (_dxfModel.Header != null)
+                {
+                    // Try different possible property names
+                    var headerType = _dxfModel.Header.GetType();
+                    var ltscaleProperty = headerType.GetProperty("LTSCALE") ??
+                                         headerType.GetProperty("LtScale") ??
+                                         headerType.GetProperty("LineTypeScale");
+
+                    if (ltscaleProperty != null)
+                    {
+                        object ltscaleValue = ltscaleProperty.GetValue(_dxfModel.Header);
+                        if (ltscaleValue != null && ltscaleValue is double)
+                        {
+                            modelSpaceScale = (double)ltscaleValue;
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // If any exceptions occur, use the default scale
+                modelSpaceScale = 1.0;
+            }
+
+            // Calculate appropriate text scale based on drawing dimensions
+            double drawingDiagonal = Math.Sqrt(drawingWidth * drawingWidth + drawingHeight * drawingHeight);
+
+            // Rule of thumb for readable text (assuming inches as units)
+            double baseTextHeight = 0.125 * 12; // Standard text height 0.125" for readability to feet
+            double baseDrawingWidth = 11.0; // Standard drawing width in inches
+
+            // Scale text proportionally to drawing size
+            double textScale = (drawingDiagonal / baseDrawingWidth) * baseTextHeight * modelSpaceScale;
+
+            // Apply reasonable limits
+            textScale = Math.Max(0.05, Math.Min(1.0, textScale));
+
+            return textScale;
+        }
+
+        // Alternative approach: Sample existing text if available
+        public double DetermineScaleFromExistingText()
+        {
+            var texts = _annotationEntities.OfType<DxfText>().ToList();
+            if (texts.Count > 0)
+            {
+                List<double> textHeights = new List<double>();
+                foreach (DxfText text in texts)
+                {
+                    // Only consider non-zero heights
+                    if (text.Height > 0)
+                    {
+                        textHeights.Add(text.Height);
+                    }
+                }
+
+                if (textHeights.Count > 0)
+                {
+                    // Sort heights and take the median as most representative
+                    textHeights.Sort();
+                    double medianHeight = textHeights[textHeights.Count / 2];
+
+                    // Calculate the bounds by iterating through all entities
+                    double minX = double.MaxValue;
+                    double minY = double.MaxValue;
+                    double maxX = double.MinValue;
+                    double maxY = double.MinValue;
+
+                    // Check all entity types that have geometric properties
+                    // Text entities
+                    foreach (var entity in _dxfModel.Entities)
+                    {
+                        if (entity is DxfText dxfText)
+                        {
+                            minX = Math.Min(minX, dxfText.AlignmentPoint1.X);
+                            minY = Math.Min(minY, dxfText.AlignmentPoint1.Y);
+                            maxX = Math.Max(maxX, dxfText.AlignmentPoint2.Value.X);
+                            maxY = Math.Max(maxY, dxfText.AlignmentPoint2.Value.Y);
+                        }
+                        else if (entity is DxfLine dxfLine)
+                        {
+                            minX = Math.Min(minX, Math.Min(dxfLine.Start.X, dxfLine.End.X));
+                            minY = Math.Min(minY, Math.Min(dxfLine.Start.Y, dxfLine.End.Y));
+                            maxX = Math.Max(maxX, Math.Max(dxfLine.Start.X, dxfLine.End.X));
+                            maxY = Math.Max(maxY, Math.Max(dxfLine.Start.Y, dxfLine.End.Y));
+                        }
+                        else if (entity is DxfCircle dxfCircle)
+                        {
+                            minX = Math.Min(minX, dxfCircle.Center.X - dxfCircle.Radius);
+                            minY = Math.Min(minY, dxfCircle.Center.Y - dxfCircle.Radius);
+                            maxX = Math.Max(maxX, dxfCircle.Center.X + dxfCircle.Radius);
+                            maxY = Math.Max(maxY, dxfCircle.Center.Y + dxfCircle.Radius);
+                        }
+                    }
+
+                    // Calculate drawing dimensions
+                    double drawingWidth = maxX - minX;
+                    double drawingHeight = maxY - minY;
+
+                    if (drawingHeight > 0)
+                    {
+                        // Calculate ratio of existing text to drawing size
+                        double currentRatio = medianHeight / drawingHeight;
+
+                        // Standard ratio for readable text (text height / drawing height)
+                        double idealRatio = 1.0 / 150.0; // Text should be ~1/150 of drawing height
+
+                        return idealRatio / currentRatio;
+                    }
+                }
+            }
+
+            return 1.0; // Default if we can't determine from existing text
+        }
     }
 }

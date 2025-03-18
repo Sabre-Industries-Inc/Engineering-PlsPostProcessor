@@ -16,9 +16,6 @@ using WW.Cad.IO;
 using WW.Cad.Model;
 using WW.Math;
 
-using PLS_Post_Processor.Helpers;
-using WW.Cad.Model.Entities;
-
 //using SixLabors.ImageSharp.PixelFormats;
 //using SixLabors.ImageSharp;
 
@@ -168,7 +165,7 @@ namespace PLS_Post_Processor
 
             // *** Check to make sure the PLS-Pole Schema File is up to date.
             ConsoleUtility.WriteProgressBar("Check PLS-Pole Schema File", 90, update: true, wait: true);
-          bool schemaFileUpdated = CheckPlsPoleSchemaFile();
+            bool schemaFileUpdated = CheckPlsPoleSchemaFile();
 
             if (schemaFileUpdated)
             {
@@ -580,7 +577,8 @@ namespace PLS_Post_Processor
                 Logger.Error(e, errMsg);
             }
 
-            CleanupDxfDrawing(model);
+            bool frontFace = Regex.IsMatch(dxfFilePath, "Front", RegexOptions.IgnoreCase);
+            CleanupDxfDrawing(model, frontFace: frontFace);
 
             // *** The image output file full path with defined extension.
             string outfile = Path.ChangeExtension(dxfFilePath, sFormat);
@@ -626,76 +624,42 @@ namespace PLS_Post_Processor
         }
 
         /// <summary>
-        /// Clean up the DXF model by removing Annotation layer (if present) and
-        /// make the text smaller (9/8/20 -- not working yet!!)
+        /// Clean up the DXF model by modifying the annotation layer.
+        ///
+        /// For the Front Face:
+        ///     modify Annotation Layer
+        ///         *) locate PLS Dimension (line, text and 3DFace)
+        ///         *) create DxfDimensions to replace the PLS Dimension
+        ///         *) Reduce the dimension text and arrow size.
+        ///     Modify layer '1'.
+        ///         *) Reduce text size
+        ///         *) identify overlapping text and make them invisible
+        ///
+        /// For the Top and Isometric views:
+        ///     Disable both the Annotation and '1' layer to make them invisible.
         /// </summary>
         /// <param name="model"></param>
-        private static void CleanupDxfDrawing(DxfModel model) //, string dxfFullPath)
+        private static void CleanupDxfDrawing(DxfModel model, bool frontFace) //, string dxfFullPath)
         {
-            //// *** Turn off the Annotation layer if it exists.
-            //string annoLayer = "Annotation";
-            //if (model.Layers.Keys.Contains(annoLayer))
-            //{
-            //    model.Layers[annoLayer].Enabled = false;
-            //}
-
             string txtLayer = "0";
             if (model.Layers.Keys.Contains(txtLayer))
             {
                 model.Layers[txtLayer].Enabled = false;
             }
 
-            var dxfConverter = new DxfDrawingModifier(model);
-
-            //var converter = new PlsToDxfDimensionConverter(model);
-            //converter.ConvertPlsDimensionsToNativeDimensions();
-            ////converter.SaveConvertedFile(outputFilePath);
-
-            //BoundsCalculator boundsCalculator = new BoundsCalculator();
-            //boundsCalculator.GetBounds(model);
-            //Bounds3D bounds = boundsCalculator.Bounds;
-
-            //DxfEntityCollection newEntities = new DxfEntityCollection();
-            //double entityScale = 0.5;
-
-            //foreach (var entity in model.Entities)
-            //{
-            //    string eType = entity.EntityType;
-            //    if (!eType.Equals("TEXT", StringComparison.OrdinalIgnoreCase))
-            //    {
-            //        continue;
-            //    }
-
-            //    DxfText txtEntity = entity as DxfText;
-            //    double txtHt = txtEntity.Height / 10.0;
-            //    txtEntity.Height *= entityScale;
-            //    //txtEntity.WidthFactor *= entityScale;
-            //    //string txt = txtEntity.Text;
-            //    //var txtPt1 = txtEntity.AlignmentPoint1;
-            //    //var txtPt2 = txtEntity.AlignmentPoint2;
-            //    //var horizAlign = txtEntity.HorizontalAlignment;
-            //    //var vertAlign = txtEntity.VerticalAlignment;
-
-            //    //DxfText newTxt = new DxfText()
-            //    //{
-            //    //    Text = txt,
-            //    //    Height = txtHt,
-            //    //    AlignmentPoint1 = txtPt1,
-            //    //    AlignmentPoint2 = txtPt2,
-            //    //    HorizontalAlignment = horizAlign,
-            //    //    VerticalAlignment = vertAlign
-            //    //};
-            //    ////model.Entities.Add(newTxt);
-            //    //newEntities.Add(newTxt);
-
-            //    //// *** Make original text invisible since I can't change the size.
-            //    //txtEntity.Visible = false;
-            //}
-
-            //if (newEntities.Count > 0)
-            //{
-            //    model.Entities.AddRange(newEntities);
-            //}
+            if (frontFace)
+            {
+                _ = new DxfDrawingModifier(model);
+            }
+            else
+            {
+                // *** Turn off the Annotation layer if it exists.
+                string annoLayer = "Annotation";
+                if (model.Layers.Keys.Contains(annoLayer))
+                {
+                    model.Layers[annoLayer].Enabled = false;
+                }
+            }
 
             string dxfFullPath = model.Filename;
             dxfFullPath = dxfFullPath.Replace(".dxf", "_0.dxf");
