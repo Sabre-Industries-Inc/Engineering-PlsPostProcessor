@@ -9,8 +9,8 @@ namespace PLS_Post_Processor.Helpers
     /// <summary>
     /// To determine if several DxfText entities overlap in the X-Y viewing plane using C# and CadLib4.0,
     /// you'll need to calculate the bounding box for each text entity and then check for intersections
-    /// between these bounding boxes. Since you mentioned that the DxfText entity contains Text Height
-    /// and BoxHeight, we can use these values along with the text position to calculate the bounding box.
+    /// between these bounding boxes. The DxfText entity contains Text Height and BoxHeight, we can use
+    /// these values along with the text position to calculate the bounding box.
     /// </summary>
     /// <remarks>
     /// Important considerations about this solution:
@@ -46,6 +46,10 @@ namespace PLS_Post_Processor.Helpers
 
         public List<DxfText> TextEntities { get; set; }
 
+        public List<BoundingBox> BoundingBoxes { get => _boundingBoxes; }
+
+        public bool IsOverlappingText { get; set; }
+
         /// <summary>
         /// Look for overlapping text in the provided list of DxfText entities.
         /// Overlapping text with the pole label will be given priority, that is,
@@ -58,7 +62,7 @@ namespace PLS_Post_Processor.Helpers
                 return;
             }
 
-            if (DoTextsOverlap(TextEntities))
+            if (DoTextsOverlap())
             {
                 foreach (var box in _boundingBoxes)
                 {
@@ -76,8 +80,10 @@ namespace PLS_Post_Processor.Helpers
             }
         }
 
-        public bool DoTextsOverlap(List<DxfText> textEntities)
+        public bool DoTextsOverlap()
         {
+            List<DxfText> textEntities = TextEntities;
+
             if (textEntities == null || textEntities.Count < 2)
                 return false;
 
@@ -101,6 +107,8 @@ namespace PLS_Post_Processor.Helpers
                     }
                 }
             }
+
+            IsOverlappingText = overlap;
 
             return overlap;
         }

@@ -57,14 +57,46 @@ namespace PLS_Post_Processor.Helpers
         private readonly DxfModel _dxfModel;
 
         /// <summary>
+        /// New text color for the DXF drawing.
+        /// </summary>
+        /// <remarks>
+        /// Color Options:
+        ///     Sky Blue: RGB(135, 206, 235)
+        ///     Light Blue: RGB(173, 216, 230)
+        ///     Powder Blue: RGB(176, 224, 230)
+        ///     Baby Blue: RGB(137, 207, 240)
+        ///     Pale Blue: RGB(175, 238, 238)
+        ///     Light Green: RGB(144, 238, 144)
+        /// </remarks>
+        private readonly EntityColor _newTextColor = EntityColor.CreateFromRgb(0, 255, 255); // Cyan
+
+        /// <summary>
         /// Font reduction factor.  Used to reduce the size of the font
         /// by dividing by the factor.
         /// A factor of 2.0 will reduce the font size by half.
         /// </summary>
         private readonly double _fontReduce = 2.0;
 
+        private readonly double _paperHeight = 8.5;
+        private readonly double _paperWidth = 11.0;
+
+        /// <summary>
+        /// The drawing scale for the DXF drawing.
+        /// Drawing scale will be calculated for the DXF drawing.
+        /// </summary>
+        private readonly double _drawingScale = 1.0;
+
+        /// <summary>
+        /// The text height for the DXF drawing.
+        /// textHt will be calculated for the DXF drawing using
+        /// the drawing scale.
+        /// Default text height = 0.125, which will be adjusted based on the drawing scale.
+        /// </summary>
+        private readonly double _textHt = 0.125;
+
         private readonly List<PlsDimension> _plsDimensions = new List<PlsDimension>();
         private List<DxfText> _orphanedText = new List<DxfText>();
+        private List<DxfText> _newOrphanedText = new List<DxfText>();
         private List<DxfLine> _orphanedLine = new List<DxfLine>();
 
         private readonly string _annotationLayer = "Annotation";
@@ -93,11 +125,10 @@ namespace PLS_Post_Processor.Helpers
             // *** Find all PLS labels on _layerOne = '1'
             _plsLabels = entitiesByLayer[_layerOne].OfType<DxfText>().ToList();
 
-            // !!! Try to calculate the text scale for the DXF drawing.
-            // !!! Currently (3/18/25) not working
-            //var textScale1 = DetermineTextScale();
-            //var textScale2 = DetermineScaleFromExistingText();
-            //_fontReduce = 1 / textScale2;
+            // *** Calculate the text scale for the DXF drawing.
+            // *** assuming a drawing size of _paperWidth = 11" and _paperHeight = 8.5"
+            _drawingScale = DetermineScaleFromExistingText();
+            _textHt /= _drawingScale;
 
             // *** Find the approximate coordinate of the pole Tip and Butt.
             FindPoleTipButt();
@@ -342,7 +373,8 @@ namespace PLS_Post_Processor.Helpers
                 var newDimension = new Aligned(_dxfModel.CurrentDimensionStyle)
                 {
                     Layer = plsDimension.DimensionLine.Layer,
-                    Color = EntityColor.CreateFromRgb(255, 255, 0), // Yellow // plsDimension.DimensionLine.Color,
+                    //Color = EntityColor.CreateFromRgb(255, 255, 0), // Yellow // plsDimension.DimensionLine.Color,
+                    Color = _newTextColor,
 
                     // Set dimension points
                     ExtensionLine1StartPoint = plsDimension.DimensionLine.Start,
@@ -355,15 +387,6 @@ namespace PLS_Post_Processor.Helpers
                     //      -) The side of the object where the dimension appears
                     DimensionLineLocation = midPt,
 
-                    //// Specifies how the dimension text is positioned relative to the dimension line
-                    //AttachmentPoint = AttachmentPoint.MiddleCenter,
-
-                    //// The actual point where the dimension text is placed
-                    //InsertionPoint = midPt,
-
-                    //// Set measurement point (typically midpoint)
-                    //TextMiddlePoint = midPt,
-
                     // Set text rotation for vertical and horizontal dimensions
                     TextRotation = -Math.PI,    //  Using 1 displayed the text at 303 deg ?!?!?
 
@@ -372,9 +395,10 @@ namespace PLS_Post_Processor.Helpers
                 };
 
                 newDimension.DimensionStyleOverrides.TextStyle = _dxfModel.TextStyles["PLS_Graphics"];
-                newDimension.DimensionStyleOverrides.TextHeight = plsDimension.DimensionText.Height / _fontReduce;
-                newDimension.DimensionStyleOverrides.ArrowSize = arrowHeadHt / _fontReduce;
-                //newDimension.DimensionStyleOverrides.OverrideTextInsideExtensions = true;
+
+                newDimension.DimensionStyleOverrides.TextHeight = _textHt;
+                newDimension.DimensionStyleOverrides.ArrowSize = _textHt;
+
                 newDimension.DimensionStyle.TextInsideExtensions = true;
                 newDimension.DimensionStyle.TextVerticalAlignment = DimensionTextVerticalAlignment.Centered;
 
@@ -421,51 +445,50 @@ namespace PLS_Post_Processor.Helpers
         {
             foreach (var dxfText in textList)
             {
-                var txtHt = dxfText.Height / _fontReduce;
-                //var halfHt = txtHt / 2.0;
-                var align1 = dxfText.AlignmentPoint1;
-                var al2 = dxfText.AlignmentPoint2;
-                Point3D align2 = new Point3D();
-
-                //double htFactor = (dxfText.Text.EndsWith(":t", StringComparison.OrdinalIgnoreCase) ? 2.2 : 1);
-                double htFactor = (dxfText.Text.EndsWith(":t") ? 2.1 : 1);
-
-                // *** Add a margin to the text if it is the tip or ground text
-                double marginFactor = 0.25;
-                double margin = 0.0;
-                if (dxfText.Text.Length >= 2)
+                if (!dxfText.AlignmentPoint2.HasValue)
                 {
-                    string lastTwoChars = dxfText.Text.Substring(dxfText.Text.Length - 2);
-
-                    switch (lastTwoChars)
-                    {
-                        case ":t":
-                            margin = txtHt * marginFactor;
-                            break;
-                        case ":g":
-                        case ":f":
-                            margin = -txtHt * marginFactor;
-                            break;
-                    }
+                    continue;
                 }
 
-                if (al2.HasValue)
-                {
-                    align2 = new Point3D(al2.Value.X, al2.Value.Y, al2.Value.Z);
+                var text = dxfText.Text;
+                //var txtHt = dxfText.Height / _fontReduce;
 
-                    if (align1.Y == align2.Y)     // horizontal text
-                    {
-                        align1.X += txtHt;
-                        align2.X += txtHt;
-                        align1.Y += (txtHt * htFactor) + margin;
-                        align2.Y += (txtHt * htFactor) + margin;
-                    }
+                var txtHt = _textHt;
+                var plsTxtHt = dxfText.Height;
+                var deltaHt = plsTxtHt - txtHt;
+
+                var align1 = dxfText.AlignmentPoint1;
+                var al2 = dxfText.AlignmentPoint2;
+
+                Point3D align2 = new Point3D(al2.Value.X, al2.Value.Y, al2.Value.Z);
+
+                // Check for specific suffixes
+                if (text.EndsWith(":t"))
+                {
+                    align1.Y += txtHt + deltaHt;
+                    align2.Y += txtHt + deltaHt;
+                }
+                else if (text.EndsWith(":g") || text.EndsWith(":f"))
+                {
+                    align1.Y -= txtHt * 0.5;
+                    align2.Y -= txtHt * 0.5;
+                }
+                else if (text.EndsWith("GL") || text.EndsWith("CL") || text.EndsWith("0") || text.EndsWith("180"))
+                {
+                    align1.Y += deltaHt * 0.5;
+                    align2.Y += deltaHt * 0.5;
+                }
+                else
+                {
+                    align1.Y += txtHt * 0.5;
+                    align2.Y += txtHt * 0.5;
                 }
 
                 DxfText newText = new DxfText();
                 newText.Style = _dxfModel.TextStyles["PLS_Graphics"];
                 newText.Layer = dxfText.Layer;
-                newText.Color = EntityColor.CreateFromRgb(255, 255, 0);
+                //newText.Color = EntityColor.CreateFromRgb(255, 255, 0);
+                newText.Color = _newTextColor;
                 newText.AlignmentPoint1 = align1;
                 newText.AlignmentPoint2 = align2;
                 newText.Text = dxfText.Text;
@@ -475,9 +498,99 @@ namespace PLS_Post_Processor.Helpers
                 {
                     _plsNewLabels.Add(newText);
                 }
+                else
+                {
+                    _newOrphanedText.Add(newText);
+                }
 
                 _dxfModel.Entities.Add(newText);
             }
+
+            if (!savePlsLabels)
+            {
+                AdjustTextLocation(!savePlsLabels);
+            }
+        }
+
+        private void AdjustTextLocation(bool orphanedText)
+        {
+            TextOverlapDetector textOverlapDetector = new TextOverlapDetector(_dxfModel, _newOrphanedText, _poleOrigin.Keys.ToList());
+            _ = textOverlapDetector.DoTextsOverlap();
+
+            foreach (var dxfText in _newOrphanedText)
+            {
+                AdjustTextAlignment(dxfText);
+
+                if (textOverlapDetector == null || !textOverlapDetector.IsOverlappingText || !dxfText.AlignmentPoint2.HasValue)
+                {
+                    continue;
+                }
+
+                AdjustOverlappingText(dxfText, textOverlapDetector);
+            }
+        }
+
+        private void AdjustTextAlignment(DxfText dxfText)
+        {
+            var al1 = new Point3D(dxfText.AlignmentPoint1);
+            var al2 = new Point3D(dxfText.AlignmentPoint2.Value);
+
+            if (dxfText.Text.Equals("CL", StringComparison.OrdinalIgnoreCase))
+            {
+                dxfText.HorizontalAlignment = TextHorizontalAlignment.Right;
+                al1.X = -dxfText.BoxWidth / 2;
+                al2.X = dxfText.BoxWidth / 2;
+                dxfText.AlignmentPoint1 = al1;
+                dxfText.AlignmentPoint2 = al2;
+            }
+        }
+
+        private void AdjustOverlappingText(DxfText dxfText, TextOverlapDetector textOverlapDetector)
+        {
+            var boundingBoxes = textOverlapDetector.BoundingBoxes;
+            var oBox = boundingBoxes.Find(t => t.Text.Equals(dxfText.Text));
+
+            if (oBox == null || oBox.OverlappingBoxes.Count == 0)
+            {
+                return;
+            }
+
+            var oTxtIdx = oBox.OverlappingBoxes.ElementAt(0).Value;
+            var bBox = boundingBoxes[oTxtIdx];
+            var oDxfText = _newOrphanedText[oTxtIdx];
+
+            AdjustTextPosition(dxfText, oDxfText); //, oAl1, oAl2);
+        }
+
+        private void AdjustTextPosition(DxfText dxfText, DxfText oDxfText)
+        {
+            var al1 = new Point3D(dxfText.AlignmentPoint1);
+            var al2 = new Point3D(dxfText.AlignmentPoint2.Value);
+            var oAl1 = new Point3D(oDxfText.AlignmentPoint1);
+            var oAl2 = new Point3D(oDxfText.AlignmentPoint2.Value);
+
+            double sign = GetSign(dxfText.Text, oDxfText.Text);
+            double oSign = GetSign(oDxfText.Text, dxfText.Text);
+
+            al1.X += _textHt * sign;
+            al2.X += _textHt * sign;
+            oAl1.X += _textHt * oSign;
+            oAl2.X += _textHt * oSign;
+
+            dxfText.AlignmentPoint1 = al1;
+            dxfText.AlignmentPoint2 = al2;
+            oDxfText.AlignmentPoint1 = oAl1;
+            oDxfText.AlignmentPoint2 = oAl2;
+        }
+
+        private double GetSign(string text1, string text2)
+        {
+            if ((text1.Equals("0", StringComparison.OrdinalIgnoreCase) && text2.Equals("GL", StringComparison.OrdinalIgnoreCase)) ||
+                (text1.Equals("GL", StringComparison.OrdinalIgnoreCase) && text2.Equals("180", StringComparison.OrdinalIgnoreCase)))
+            {
+                return -1;
+            }
+            return 1;
         }
 
         /// <summary>
@@ -540,7 +653,8 @@ namespace PLS_Post_Processor.Helpers
             {
                 DxfLine newLine = new DxfLine();
                 newLine.Layer = dxfLine.Layer;
-                newLine.Color = EntityColor.CreateFromRgb(255, 255, 0);
+                //newLine.Color = EntityColor.CreateFromRgb(255, 255, 0);
+                newLine.Color = _newTextColor;
                 newLine.Start = new Point3D(dxfLine.Start);
                 newLine.End = new Point3D(dxfLine.End);
 
@@ -580,14 +694,12 @@ namespace PLS_Post_Processor.Helpers
             );
         }
 
-
-
         /// <summary>
-        ///
-
+        /// Compute the scale for the DXF drawing based on paper size
+        /// _paperWidth = 11.0 and _paperHeight = 8.5.
         /// </summary>
-        ///
-        public double DetermineTextScale()
+        /// <returns>Return the text scale.</returns>
+        public double DetermineScaleFromExistingText()
         {
             // Calculate the bounds by iterating through all entities
             double minX = double.MaxValue;
@@ -606,7 +718,7 @@ namespace PLS_Post_Processor.Helpers
                     maxX = Math.Max(maxX, dxfText.AlignmentPoint2.Value.X);
                     maxY = Math.Max(maxY, dxfText.AlignmentPoint2.Value.Y);
                 }
-                else if(entity is DxfLine dxfLine)
+                else if (entity is DxfLine dxfLine)
                 {
                     minX = Math.Min(minX, Math.Min(dxfLine.Start.X, dxfLine.End.X));
                     minY = Math.Min(minY, Math.Min(dxfLine.Start.Y, dxfLine.End.Y));
@@ -626,128 +738,14 @@ namespace PLS_Post_Processor.Helpers
             double drawingWidth = maxX - minX;
             double drawingHeight = maxY - minY;
 
-            // If we couldn't determine bounds, return a default scale
-            if (drawingWidth <= 0 || drawingHeight <= 0)
+            if (drawingHeight > 0)
             {
-                return 1.0;
-            }
+                var scaleX = _paperWidth / drawingWidth;
+                var scaleY = _paperHeight / drawingHeight;
 
-            // For linetype scale, try to access it directly from the header if available
-            double modelSpaceScale = 1.0;
-            try
-            {
-                // Attempt to access LTSCALE directly from the header object
-                // The exact property name may vary depending on the CadLib version
-                if (_dxfModel.Header != null)
-                {
-                    // Try different possible property names
-                    var headerType = _dxfModel.Header.GetType();
-                    var ltscaleProperty = headerType.GetProperty("LTSCALE") ??
-                                         headerType.GetProperty("LtScale") ??
-                                         headerType.GetProperty("LineTypeScale");
+                var scale = Math.Min(scaleX, scaleY);
 
-                    if (ltscaleProperty != null)
-                    {
-                        object ltscaleValue = ltscaleProperty.GetValue(_dxfModel.Header);
-                        if (ltscaleValue != null && ltscaleValue is double)
-                        {
-                            modelSpaceScale = (double)ltscaleValue;
-                        }
-                    }
-                }
-            }
-            catch
-            {
-                // If any exceptions occur, use the default scale
-                modelSpaceScale = 1.0;
-            }
-
-            // Calculate appropriate text scale based on drawing dimensions
-            double drawingDiagonal = Math.Sqrt(drawingWidth * drawingWidth + drawingHeight * drawingHeight);
-
-            // Rule of thumb for readable text (assuming inches as units)
-            double baseTextHeight = 0.125 * 12; // Standard text height 0.125" for readability to feet
-            double baseDrawingWidth = 11.0; // Standard drawing width in inches
-
-            // Scale text proportionally to drawing size
-            double textScale = (drawingDiagonal / baseDrawingWidth) * baseTextHeight * modelSpaceScale;
-
-            // Apply reasonable limits
-            textScale = Math.Max(0.05, Math.Min(1.0, textScale));
-
-            return textScale;
-        }
-
-        // Alternative approach: Sample existing text if available
-        public double DetermineScaleFromExistingText()
-        {
-            var texts = _annotationEntities.OfType<DxfText>().ToList();
-            if (texts.Count > 0)
-            {
-                List<double> textHeights = new List<double>();
-                foreach (DxfText text in texts)
-                {
-                    // Only consider non-zero heights
-                    if (text.Height > 0)
-                    {
-                        textHeights.Add(text.Height);
-                    }
-                }
-
-                if (textHeights.Count > 0)
-                {
-                    // Sort heights and take the median as most representative
-                    textHeights.Sort();
-                    double medianHeight = textHeights[textHeights.Count / 2];
-
-                    // Calculate the bounds by iterating through all entities
-                    double minX = double.MaxValue;
-                    double minY = double.MaxValue;
-                    double maxX = double.MinValue;
-                    double maxY = double.MinValue;
-
-                    // Check all entity types that have geometric properties
-                    // Text entities
-                    foreach (var entity in _dxfModel.Entities)
-                    {
-                        if (entity is DxfText dxfText)
-                        {
-                            minX = Math.Min(minX, dxfText.AlignmentPoint1.X);
-                            minY = Math.Min(minY, dxfText.AlignmentPoint1.Y);
-                            maxX = Math.Max(maxX, dxfText.AlignmentPoint2.Value.X);
-                            maxY = Math.Max(maxY, dxfText.AlignmentPoint2.Value.Y);
-                        }
-                        else if (entity is DxfLine dxfLine)
-                        {
-                            minX = Math.Min(minX, Math.Min(dxfLine.Start.X, dxfLine.End.X));
-                            minY = Math.Min(minY, Math.Min(dxfLine.Start.Y, dxfLine.End.Y));
-                            maxX = Math.Max(maxX, Math.Max(dxfLine.Start.X, dxfLine.End.X));
-                            maxY = Math.Max(maxY, Math.Max(dxfLine.Start.Y, dxfLine.End.Y));
-                        }
-                        else if (entity is DxfCircle dxfCircle)
-                        {
-                            minX = Math.Min(minX, dxfCircle.Center.X - dxfCircle.Radius);
-                            minY = Math.Min(minY, dxfCircle.Center.Y - dxfCircle.Radius);
-                            maxX = Math.Max(maxX, dxfCircle.Center.X + dxfCircle.Radius);
-                            maxY = Math.Max(maxY, dxfCircle.Center.Y + dxfCircle.Radius);
-                        }
-                    }
-
-                    // Calculate drawing dimensions
-                    double drawingWidth = maxX - minX;
-                    double drawingHeight = maxY - minY;
-
-                    if (drawingHeight > 0)
-                    {
-                        // Calculate ratio of existing text to drawing size
-                        double currentRatio = medianHeight / drawingHeight;
-
-                        // Standard ratio for readable text (text height / drawing height)
-                        double idealRatio = 1.0 / 150.0; // Text should be ~1/150 of drawing height
-
-                        return idealRatio / currentRatio;
-                    }
-                }
+                return scale;
             }
 
             return 1.0; // Default if we can't determine from existing text
