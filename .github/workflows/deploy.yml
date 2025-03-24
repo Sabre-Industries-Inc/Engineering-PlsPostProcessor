@@ -26,13 +26,13 @@ jobs:
     #     dotnet-version: ${{ env.DOTNET_VERSION }}
 
     - name: Restore dependencies
-      run: dotnet restore ${{ env.SOLUTION_FILE_PATH }}
+      run: dotnet restore "${{ env.SOLUTION_FILE_PATH }}"
 
     - name: Build
-      run: dotnet build ${{ env.SOLUTION_FILE_PATH }} --configuration ${{ env.BUILD_CONFIGURATION }} --no-restore
+      run: dotnet build "${{ env.SOLUTION_FILE_PATH }}" --configuration ${{ env.BUILD_CONFIGURATION }} --no-restore
 
     - name: Publish
-      run: dotnet publish ${{ env.SOLUTION_FILE_PATH }} --configuration ${{ env.BUILD_CONFIGURATION }} --no-build --output ${{ env.OUTPUT_PATH }}
+      run: dotnet publish "${{ env.SOLUTION_FILE_PATH }}" --configuration ${{ env.BUILD_CONFIGURATION }} --no-build --output "${{ env.OUTPUT_PATH }}"
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4
@@ -82,7 +82,7 @@ jobs:
               }
 
               # Copy published files - only copies within the virtual machine
-              Copy-Item -Path ${{ env.OUTPUT_PATH }}\* -Destination $deployPath -Recurse -Force
+              Copy-Item -Path "${{ env.OUTPUT_PATH }}"\* -Destination $deployPath -Recurse -Force
 
               Write-Host "Deployed to: $deployPath"
             } catch {
