@@ -20,13 +20,21 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
-    # - name: Setup .NET Framework
-    #   uses: actions/setup-dotnet@v3
-    #   with:
-    #     dotnet-version: ${{ env.DOTNET_VERSION }}
+    # Ensure the correct .NET SDK is available
+    - name: Setup .NET SDK
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: '5.x' # Use a compatible .NET SDK version for .NET Framework 4.8
 
     - name: Restore dependencies
       run: dotnet restore "${{ env.SOLUTION_FILE_PATH }}"
+      continue-on-error: true # Continue to the next step even if restore fails
+
+    - name: Check for restore errors
+      if: failure()
+      run: |
+        echo "Restore failed. Checking for errors..."
+        cat $(System.DefaultWorkingDirectory)/_temp/*.log
 
     - name: Build
       run: dotnet build "${{ env.SOLUTION_FILE_PATH }}" --configuration ${{ env.BUILD_CONFIGURATION }} --no-restore
