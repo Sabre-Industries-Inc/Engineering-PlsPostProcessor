@@ -11,7 +11,7 @@ env:
   SOLUTION_FILE_PATH: ./"PLS Post Processor.sln"
   PROJECT_FILE_PATH: ./"PLS Post Processor"/"PLS Post Processor.csproj"
   BUILD_CONFIGURATION: Release
-  OUTPUT_PATH: ./"Publish/PLSPostProcessor"
+  OUTPUT_PATH: C:/"Publish/PLSPostProcessor"
 
 jobs:
   build:
@@ -20,11 +20,11 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
-    # Ensure the correct .NET SDK is available
-    - name: Setup .NET SDK
-      uses: actions/setup-dotnet@v3
-      with:
-        dotnet-version: '5.x' # Use a compatible .NET SDK version for .NET Framework 4.8
+    # # Ensure the correct .NET SDK is available
+    # - name: Setup .NET SDK
+    #   uses: actions/setup-dotnet@v3
+    #   with:
+    #     dotnet-version: '5.x' # Use a compatible .NET SDK version for .NET Framework 4.8
 
     - name: Restore dependencies
       run: dotnet restore ${{ env.SOLUTION_FILE_PATH }}
