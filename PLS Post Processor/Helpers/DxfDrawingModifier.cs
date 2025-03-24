@@ -1,26 +1,11 @@
 ﻿using System;
-using System.Buffers.Text;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net.NetworkInformation;
-using System.Net;
-using System.Xml.Linq;
 using WW.Cad.Model;
 using WW.Cad.Model.Entities;
 using WW.Cad.Model.Tables;
-using static WW.Cad.Model.Entities.DxfPattern;
-using static WW.Cad.Model.ProxyGraphics;
-using Point3D = WW.Math.Point3D;
-using static System.Net.Mime.MediaTypeNames;
 using static WW.Cad.Model.Entities.DxfDimension;
-using static WW.Cad.Model.Entities.DxfEntityCollection.Actions;
-using static WW.Cad.Model.Entities.DxfHatch.BoundaryPath;
-using System.ComponentModel;
-using System.Configuration;
-using WW.Cad.Drawing.Surface;
-using static PLS_Post_Processor.Helpers.DxfDrawingModifier;
-using NLog.LayoutRenderers;
-using System.Numerics;
+using Point3D = WW.Math.Point3D;
 
 namespace PLS_Post_Processor.Helpers
 {
