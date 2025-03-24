@@ -8,10 +8,10 @@ on:
 
 env:
   DOTNET_VERSION: '4.8.x'
-  SOLUTION_FILE_PATH: ./PLS Post Processor.sln
-  PROJECT_FILE_PATH: ./PLS Post Processor/PLS Post Processor.csproj
+  SOLUTION_FILE_PATH: "./PLS Post Processor.sln"
+  PROJECT_FILE_PATH: "./PLS Post Processor/PLS Post Processor.csproj"
   BUILD_CONFIGURATION: Release
-  OUTPUT_PATH: ./Publish/PLSPostProcessor
+  OUTPUT_PATH: "./Publish/PLSPostProcessor"
 
 jobs:
   build:
