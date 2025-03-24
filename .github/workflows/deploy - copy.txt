@@ -20,19 +20,24 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
-    - name: Install vswhere
-      run: choco install vswhere
-
-    - name: Find MSBuild
-      id: msbuild
-      run: |
-        echo "::set-output name=msbuild-path::$(vswhere -latest -products * -requires Microsoft.Component.MSBuild -find MSBuild\**\Bin\MSBuild.exe)"
+    # # Ensure the correct .NET SDK is available
+    # - name: Setup .NET SDK
+    #   uses: actions/setup-dotnet@v3
+    #   with:
+    #     dotnet-version: '5.x' # Use a compatible .NET SDK version for .NET Framework 4.8
 
     - name: Restore dependencies
-      run: ${{ steps.msbuild.outputs['msbuild-path'] }} -restore ${{ env.SOLUTION_FILE_PATH }}
+      run: dotnet restore ${{ env.SOLUTION_FILE_PATH }}
+      continue-on-error: true # Continue to the next step even if restore fails
+
+    - name: Check for restore errors
+      if: failure()
+      run: |
+        echo "Restore failed. Checking for errors..."
+        cat $(System.DefaultWorkingDirectory)/_temp/*.log
 
     - name: Build
-      run: ${{ steps.msbuild.outputs['msbuild-path'] }} ${{ env.SOLUTION_FILE_PATH }} /p:Configuration=${{ env.BUILD_CONFIGURATION }}
+      run: dotnet build ${{ env.SOLUTION_FILE_PATH }} --configuration ${{ env.BUILD_CONFIGURATION }} --no-restore
 
     - name: Publish
       run: dotnet publish ${{ env.SOLUTION_FILE_PATH }} --configuration ${{ env.BUILD_CONFIGURATION }} --no-build --output ${{ env.OUTPUT_PATH }}
