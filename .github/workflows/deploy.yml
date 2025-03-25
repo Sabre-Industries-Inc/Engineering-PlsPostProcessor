@@ -37,7 +37,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: published-files
-        path: ${{ env.OUTPUT_PATH }}
+        path: ${{ env.OUTPUT_PATH }}\bin\${{ env.BUILD_CONFIGURATION }}
 
     # - name: Create Release
     #   uses: softprops/action-gh-release@v2
@@ -62,9 +62,9 @@ jobs:
     needs: build
 
     steps:
-      - name: List local Files
-        shell: pwsh
-        run: ls
+      # - name: List local Files
+      #   shell: pwsh
+      #   run: ls
 
       - name: Download artifact
         uses: actions/download-artifact@v4
