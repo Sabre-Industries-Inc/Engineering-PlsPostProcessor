@@ -11,7 +11,7 @@ env:
   SOLUTION_FILE_PATH: ./'PLS Post Processor.sln'
   PROJECT_FILE_PATH: ./'PLS Post Processor'/'PLS Post Processor.csproj'
   BUILD_CONFIGURATION: Release
-  OUTPUT_PATH: C:/Publish/PLSPostProcessor # ${{ github.workspace }}\publishoutput
+  OUTPUT_PATH: ${{ github.workspace }}\publishoutput  # C:/Publish/PLSPostProcessor #
 
 jobs:
   build:
@@ -39,12 +39,6 @@ jobs:
         name: published-files
         path: ${{ env.OUTPUT_PATH }}
 
-    # - name: Create Release
-    #   uses: softprops/action-gh-release@v2
-    #   if: startsWith(github.ref, 'refs/tags/')
-    #   with:
-    #     files: ${{ env.OUTPUT_PATH }}\**\*
-
     - name: View Environment
       run: |
         echo "DOTNET_VERSION = ${{ env.DOTNET_VERSION }}"
@@ -53,9 +47,9 @@ jobs:
         echo "BUILD_CONFIGURATION = ${{ env.BUILD_CONFIGURATION }}"
         echo "OUTPUT_PATH = ${{ env.OUTPUT_PATH}}"
 
-    - name: View Local Files
-      shell: pwsh
-      run: ls
+    # - name: View Local Files
+    #   shell: pwsh
+    #   run: ls
 
   deploy:
     runs-on: self-hosted
@@ -91,9 +85,13 @@ jobs:
           if ($deployPath -ne "") {
             try {
               # Create directory if it doesn't exist
-              if (!(Test-Path $deployPath)) {
-                New-Item -ItemType Directory -Path $deployPath -Force
-              }
+                if (Test-Path $deployPath) {
+                    # Remove all contents of the existing directory
+                    Remove-Item -Path "$deployPath\*" -Recurse -Force
+                } else {
+                    # Create directory if it doesn't exist
+                    New-Item -ItemType Directory -Path $deployPath -Force
+                }
 
               # Copy published files - only copies within the virtual machine
               Copy-Item -Path ${{ env.OUTPUT_PATH }}\* -Destination $deployPath -Recurse -Force
