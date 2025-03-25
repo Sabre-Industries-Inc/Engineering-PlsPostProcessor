@@ -11,8 +11,9 @@ env:
   SOLUTION_FILE_PATH: ./"PLS Post Processor.sln"
   PROJECT_FILE_PATH: ./"PLS Post Processor"/"PLS Post Processor.csproj"
   BUILD_CONFIGURATION: Release
-  OUTPUT_PATH: ${{ github.workspace }}\publishoutput
+  OUTPUT_PATH: C:/Publish/PLSPostProcessor
 
+  #  OUTPUT_PATH: ${{ github.workspace }}\publishoutput
   # C:/"Publish/PLSPostProcessor"
 
 jobs:
