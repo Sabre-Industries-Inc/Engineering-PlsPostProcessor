@@ -55,11 +55,17 @@ jobs:
         echo "BUILD_CONFIGURATION = ${{ env.BUILD_CONFIGURATION }}"
         echo "OUTPUT_PATH = ${{ env.OUTPUT_PATH}}"
 
+    - name: View Local Files
+      run: ls
+
   deploy:
     runs-on: self-hosted
     needs: build
 
     steps:
+      - name: List local Files
+        run: ls
+
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
