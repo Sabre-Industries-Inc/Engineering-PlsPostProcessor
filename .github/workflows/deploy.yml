@@ -96,10 +96,14 @@ jobs:
               }
 
               # Copy published files - only copies within the virtual machine
-              Copy-Item -Path ${{ env.OUTPUT_PATH }}\bin\${{ env.BUILD_CONFIGURATION }}\* -Destination $deployPath -Recurse -Force
+              Copy-Item -Path ${{ env.OUTPUT_PATH }}\* -Destination $deployPath -Recurse -Force
 
               Write-Host "Deployed to: $deployPath"
             } catch {
               Write-Error "Deployment failed: $_"
             }
           }
+
+      - name: List Output
+        shell: pwsh
+        run: ls ${{ env.OUTPUT_PATH }}
