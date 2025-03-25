@@ -70,7 +70,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: published-files
-          path: ${{ env.OUTPUT_PATH }}/bin/${{ env.BUILD_CONFIGURATION }}
+          path: ${{ env.OUTPUT_PATH }}
 
       - name: Deploy based on branch
         shell: pwsh
