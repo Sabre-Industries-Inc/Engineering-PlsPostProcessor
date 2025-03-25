@@ -18,35 +18,32 @@ jobs:
     runs-on: windows-latest
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
-    # # Ensure the correct .NET SDK is available
-    # - name: Setup .NET SDK
-    #   uses: actions/setup-dotnet@v3
-    #   with:
-    #     dotnet-version: '5.x' # Use a compatible .NET SDK version for .NET Framework 4.8
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v2
 
-    - name: Restore dependencies
-      run: dotnet restore ${{ env.SOLUTION_FILE_PATH }}
-    #   continue-on-error: true # Continue to the next step even if restore fails
+    - name: Setup NuGet
+      uses: nuget/setup-nuget@v1
 
-    # - name: Check for restore errors
-    #   if: failure()
-    #   run: |
-    #     echo "Restore failed. Checking for errors..."
-    #     cat $(System.DefaultWorkingDirectory)/_temp/*.log
+    - name: Restore NuGet Packages
+      run: nuget restore "PLS Post Processor.sln"
 
-    - name: Build
-      run: dotnet build ${{ env.SOLUTION_FILE_PATH }} --configuration ${{ env.BUILD_CONFIGURATION }} --no-restore
-
-    - name: Publish
-      run: dotnet publish ${{ env.SOLUTION_FILE_PATH }} --configuration ${{ env.BUILD_CONFIGURATION }} --no-build --output ${{ env.OUTPUT_PATH }}
+    - name: Build Solution
+      run: |
+        msbuild "PLS Post Processor.sln" /p:Configuration=Release /p:Platform="Any CPU" /p:DeployOnBuild=true /p:WebPublishMethod=Package /p:PackageAsSingleFile=true /p:SkipInvalidConfigurations=true /p:PackageLocation="${{ github.workspace }}\publishoutput"
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
         name: published-files
-        path: ${{ env.OUTPUT_PATH }}
+        path: ${{ github.workspace }}\publishoutput
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v2
+      if: startsWith(github.ref, 'refs/tags/')
+      with:
+        files: ${{ github.workspace }}\publishoutput\**\*
 
     - name: View Environment
       run: |
