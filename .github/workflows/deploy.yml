@@ -75,11 +75,11 @@ jobs:
           $deployPath = ""
 
           if ($branch -eq "refs/heads/main") {
-            $deployPath = "${{ DEPLOY_PATH }}\Production"
+            $deployPath = "${{ env.DEPLOY_PATH }}\Production"
           } elseif ($branch -eq "refs/heads/test") {
-            $deployPath = "${{ DEPLOY_PATH }}\Test"
+            $deployPath = "${{ env.DEPLOY_PATH }}\Test"
           } elseif ($branch -eq "refs/heads/dev") {
-            $deployPath = "${{ DEPLOY_PATH }}\Development"
+            $deployPath = "${{ env.DEPLOY_PATH }}\Development"
           }
 
           echo "deployPath = $deployPath"
