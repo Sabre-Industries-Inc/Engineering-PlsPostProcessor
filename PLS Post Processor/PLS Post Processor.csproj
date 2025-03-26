@@ -137,6 +137,9 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
+    <None Include="Engineering Install Procedure.docx">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Include="Misc\PLS Post Processor Flowchart.drawio" />
     <None Include="Misc\PLS-Pole analysis and design Procedure.docx" />
     <None Include="Misc\postcmd.cmd" />
