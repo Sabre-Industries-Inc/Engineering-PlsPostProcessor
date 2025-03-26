@@ -13,7 +13,7 @@ env:
   PROJECT_FILE_PATH: ./'PLS Post Processor'/'PLS Post Processor.csproj'
   BUILD_CONFIGURATION: Release
   OUTPUT_PATH: ${{ github.workspace }}\publishoutput  # C:/Publish/PLSPostProcessor #
-  DEPLOY_PATH: 'PlsPostProcessor'  # 'Q:\deploy-dev\actions'
+  DEPLOY_DIR: 'PlsPostProcessor'  # 'Q:\deploy-dev\actions'
 
 jobs:
   build:
@@ -76,11 +76,11 @@ jobs:
           $deployPath = ""
 
           if ($branch -eq "refs/heads/main") {
-            $deployPath = "Q:\deploy-prod\${{ env.DEPLOY_PATH }}"
+            $deployPath = "Q:\deploy-prod\${{ env.DEPLOY_DIR }}"
           } elseif ($branch -eq "refs/heads/test") {
-            $deployPath = "$Q:\deploy-test\{{ env.DEPLOY_PATH }}"
+            $deployPath = "Q:\deploy-test\${{ env.DEPLOY_DIR }}"
           } elseif ($branch -eq "refs/heads/dev") {
-            $deployPath = "Q:\deploy-dev\${{ env.DEPLOY_PATH }}"
+            $deployPath = "Q:\deploy-dev\${{ env.DEPLOY_DIR }}"
           }
 
           echo "deployPath = $deployPath"
