@@ -44,16 +44,18 @@ namespace PLS_Post_Processor.Helpers
         /// <summary>
         /// New text color for the DXF drawing.
         /// </summary>
-        /// <remarks>
-        /// Color Options:
-        ///     Sky Blue: RGB(135, 206, 235)
-        ///     Light Blue: RGB(173, 216, 230)
-        ///     Powder Blue: RGB(176, 224, 230)
-        ///     Baby Blue: RGB(137, 207, 240)
-        ///     Pale Blue: RGB(175, 238, 238)
-        ///     Light Green: RGB(144, 238, 144)
-        /// </remarks>
-        private readonly EntityColor _newTextColor = EntityColor.CreateFromRgb(0, 255, 255); // Cyan
+        //private readonly EntityColor _newTextColor = EntityColor.CreateFromRgb(255, 255, 255); // White
+        //private readonly EntityColor _newTextColor = EntityColor.CreateFromRgb(0, 255, 255); // Cyan
+#if DEBUG
+        private readonly EntityColor _newTextColor = EntityColor.CreateFromRgb(7, 97, 178); // SFC Blue
+#else
+        private readonly EntityColor _newTextColor = EntityColor.CreateFromRgb(0, 0, 0); // Black
+#endif
+
+        /// <summary>
+        /// The text style to be used for the DXF drawing.
+        /// </summary>
+        private readonly string _textStyle = "PLS_View";
 
         /// <summary>
         /// Font reduction factor.  Used to reduce the size of the font
@@ -140,7 +142,7 @@ namespace PLS_Post_Processor.Helpers
 
             ReplaceOrphanedLine();
 
-            // *** Remove all annotation entities
+            // *** Remove all PLS generated annotation entities, that is the original annotation entities.
             RemoveAllOriginalEntities(_annotationEntities);
 
             RemoveAllOriginalEntities(_plsLabels.Cast<DxfEntity>().ToList());
@@ -379,22 +381,77 @@ namespace PLS_Post_Processor.Helpers
                     Text = plsDimension.DimensionText.Text
                 };
 
-                newDimension.DimensionStyleOverrides.TextStyle = _dxfModel.TextStyles["PLS_Graphics"];
+                newDimension.DimensionStyleOverrides.TextStyle = _dxfModel.TextStyles[_textStyle];
 
                 newDimension.DimensionStyleOverrides.TextHeight = _textHt;
                 newDimension.DimensionStyleOverrides.ArrowSize = _textHt;
 
                 newDimension.DimensionStyle.TextInsideExtensions = true;
                 newDimension.DimensionStyle.TextVerticalAlignment = DimensionTextVerticalAlignment.Centered;
+                newDimension.DimensionStyle.TextHorizontalAlignment = DimensionTextHorizontalAlignment.Centered;
 
                 newDimension.DimensionStyleOverrides.SuppressFirstExtensionLine = true;
                 newDimension.DimensionStyleOverrides.SuppressSecondExtensionLine = true;
+
+                CheckDimensionTextLocation(plsDimension, newDimension);
 
                 // Add new dimension to the document
                 _dxfModel.Entities.Add(newDimension);
 
                 // *** Regenerate the dimension block
                 newDimension.GenerateBlock();
+            }
+        }
+
+        /// <summary>
+        /// Check the PLS Dimension to ensure the text is in the correct location.
+        /// If the dimension line length is close to the text value, the text should be centered.
+        /// Otherwise, move text to the left if the dimension line is on the left and
+        /// move text to the right if the dimension is on the right.
+        ///
+        /// 'left' is when the ExtensionLine1StartPoint.X < 0
+        /// 'right" is when the ExtensionLine1StartPoint.X > 0
+        /// </summary>
+        /// <param name="dim">The Pls Dimension line</param>
+        /// <param name="newDim">The new Aligned Dimension line</param>
+        private void CheckDimensionTextLocation(PlsDimension dim, Aligned newDim)
+        {
+            var overrideStyle = newDim.DimensionStyleOverrides;
+            var midPoint = CalculateMidPoint(newDim.ExtensionLine1StartPoint, newDim.ExtensionLine2StartPoint);
+
+            var txtHt = overrideStyle.TextHeight;
+            var charCnt = newDim.Text.Length;
+            var txtWidth = charCnt * txtHt * 0.6;
+
+            var arrowHt = overrideStyle.ArrowSize;
+
+            var dimLineLength = CalculateDistance(newDim.ExtensionLine1StartPoint, newDim.ExtensionLine2StartPoint) - (2 * arrowHt);  // dim length without arrow heads.
+
+            if (dim.DimensionDirection == DimensionDirection.Vertical)
+            {
+                if (dimLineLength >= txtHt)
+                {
+                    return; // no need to adjust text location
+                }
+
+                var pos = (newDim.ExtensionLine1StartPoint.X < 0 ? -1 : 1);
+                if (midPoint.X < 0)  // to the left of the dimension line
+                {
+                    newDim.DimensionStyle.TextHorizontalAlignment = DimensionTextHorizontalAlignment.RightCentered;
+                }
+                else if (midPoint.X > 0)  // to the right of the dimension line
+                {
+                    newDim.DimensionStyle.TextHorizontalAlignment = DimensionTextHorizontalAlignment.LeftCentered;
+                }
+            }
+            else   // else it's horizontal
+            {
+                if (dimLineLength >= txtWidth)
+                {
+                    return; // no need to adjust text location
+                }
+
+                newDim.DimensionStyle.TextVerticalAlignment = DimensionTextVerticalAlignment.Above;
             }
         }
 
@@ -470,7 +527,7 @@ namespace PLS_Post_Processor.Helpers
                 }
 
                 DxfText newText = new DxfText();
-                newText.Style = _dxfModel.TextStyles["PLS_Graphics"];
+                newText.Style = _dxfModel.TextStyles[_textStyle];
                 newText.Layer = dxfText.Layer;
                 //newText.Color = EntityColor.CreateFromRgb(255, 255, 0);
                 newText.Color = _newTextColor;
@@ -665,7 +722,7 @@ namespace PLS_Post_Processor.Helpers
         }
 
         /// <summary>
-        /// Caculate the distance between two 3D points
+        /// Calculate the distance between two 3D points
         /// </summary>
         /// <param name="point1"></param>
         /// <param name="point2"></param>
@@ -677,6 +734,22 @@ namespace PLS_Post_Processor.Helpers
                 Math.Pow(point2.Y - point1.Y, 2) +
                 Math.Pow(point2.Z - point1.Z, 2)
             );
+        }
+
+        /// <summary>
+        /// Calculate the middle point between two 3D points
+        /// </summary>
+        /// <param name="pt1"></param>
+        /// <param name="pt2"></param>
+        /// <returns></returns>
+        private Point3D CalculateMidPoint(Point3D pt1, Point3D pt2)
+        {
+            Point3D midPt = new Point3D(
+                                (pt1.X + pt2.X) / 2.0,
+                                (pt1.Y + pt2.Y) / 2.0,
+                                (pt1.Z + pt2.Z) / 2.0
+                                );
+            return midPt;
         }
 
         /// <summary>
